@@ -7,15 +7,16 @@ type Props = {
   onScan: (barcode: string) => void
 }
 
-export default function BarcodeScanner({
-  onScan,
-}: Props) {
+export default function BarcodeScanner({ onScan }: Props) {
   useEffect(() => {
     const scanner = new Html5QrcodeScanner(
       'reader',
       {
         fps: 10,
-        qrbox: 250,
+        qrbox: {
+          width: 280,
+          height: 160,
+        },
       },
       false
     )
@@ -23,7 +24,7 @@ export default function BarcodeScanner({
     scanner.render(
       (decodedText) => {
         onScan(decodedText)
-        scanner.clear()
+        scanner.clear().catch(() => {})
       },
       () => {}
     )
@@ -33,5 +34,5 @@ export default function BarcodeScanner({
     }
   }, [onScan])
 
-  return <div id="reader" />
+  return <div id="reader" className="w-full" />
 }
