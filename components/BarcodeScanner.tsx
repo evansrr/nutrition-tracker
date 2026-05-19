@@ -1,38 +1,57 @@
 'use client'
 
-import { Html5QrcodeScanner } from 'html5-qrcode'
-import { useEffect } from 'react'
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { useEffect, useRef } from 'react'
 
 type Props = {
   onScan: (barcode: string) => void
 }
 
 export default function BarcodeScanner({ onScan }: Props) {
-  useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      'reader',
-      {
-        fps: 10,
-        qrbox: {
-          width: 280,
-          height: 160,
-        },
-      },
-      false
-    )
+  const videoRef = useRef<HTMLVideoElement | null>(null)
 
-    scanner.render(
-      (decodedText) => {
-        onScan(decodedText)
-        scanner.clear().catch(() => {})
-      },
-      () => {}
-    )
+  useEffect(() => {
+    const reader = new BrowserMultiFormatReader()
+    let stopped = false
+
+    async function start() {
+      try {
+        await reader.decodeFromVideoDevice(
+          undefined,
+          videoRef.current!,
+          (result) => {
+            if (result && !stopped) {
+              stopped = true
+              onScan(result.getText())
+              ;(reader as any).reset()
+            }
+          }
+        )
+      } catch {
+        alert('Impossible de lancer le scanner.')
+      }
+    }
+
+    start()
 
     return () => {
-      scanner.clear().catch(() => {})
+      stopped = true
+      ;(reader as any).reset()
     }
   }, [onScan])
 
-  return <div id="reader" className="w-full" />
+  return (
+    <div className="space-y-3">
+      <video
+        ref={videoRef}
+        className="w-full rounded border"
+        playsInline
+        muted
+      />
+
+      <p className="text-sm text-gray-500">
+        Place le code-barres bien à plat, bien éclairé, et assez proche de la caméra.
+      </p>
+    </div>
+  )
 }
