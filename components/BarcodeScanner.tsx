@@ -7,36 +7,48 @@ type Props = {
   onScan: (barcode: string) => void
 }
 
-export default function BarcodeScanner({ onScan }: Props) {
-  const videoRef = useRef<HTMLVideoElement | null>(null)
+export default function BarcodeScanner({
+  onScan,
+}: Props) {
+  const videoRef =
+    useRef<HTMLVideoElement | null>(null)
 
   useEffect(() => {
-    const reader = new BrowserMultiFormatReader()
+    const reader =
+      new BrowserMultiFormatReader()
+
+    let controls: any
     let stopped = false
 
-    async function start() {
+    async function startScanner() {
       try {
-        await reader.decodeFromVideoDevice(
-          undefined,
-          videoRef.current!,
-          (result) => {
-            if (result && !stopped) {
-              stopped = true
-              onScan(result.getText())
-              ;(reader as any).reset()
+        controls =
+          await reader.decodeFromVideoDevice(
+            undefined,
+            videoRef.current!,
+            (result) => {
+              if (result && !stopped) {
+                stopped = true
+
+                const code =
+                  result.getText()
+
+                controls?.stop()
+
+                onScan(code)
+              }
             }
-          }
-        )
-      } catch {
-        alert('Impossible de lancer le scanner.')
+          )
+      } catch (error) {
+        console.error(error)
       }
     }
 
-    start()
+    startScanner()
 
     return () => {
       stopped = true
-      ;(reader as any).reset()
+      controls?.stop()
     }
   }, [onScan])
 
@@ -50,7 +62,7 @@ export default function BarcodeScanner({ onScan }: Props) {
       />
 
       <p className="text-sm text-gray-500">
-        Place le code-barres bien à plat, bien éclairé, et assez proche de la caméra.
+        Scanne un code-barres alimentaire
       </p>
     </div>
   )
