@@ -12,31 +12,35 @@ export default function BarcodeScanner({ onScan }: Props) {
 
   useEffect(() => {
     const reader = new BrowserMultiFormatReader()
-    let stopped = false
+    let isScanning = true
+    let controls: { stop: () => void } | undefined
 
-    async function start() {
+    async function startScanner() {
       try {
-        await reader.decodeFromVideoDevice(
+        controls = await reader.decodeFromVideoDevice(
           undefined,
           videoRef.current!,
           (result) => {
-            if (result && !stopped) {
-              stopped = true
-              onScan(result.getText())
-              ;(reader as any).reset()
+            if (result && isScanning) {
+              isScanning = false
+              const code = result.getText()
+
+              controls?.stop()
+              onScan(code)
             }
           }
         )
-      } catch {
+      } catch (error) {
+        console.error(error)
         alert('Impossible de lancer le scanner.')
       }
     }
 
-    start()
+    startScanner()
 
     return () => {
-      stopped = true
-      ;(reader as any).reset()
+      isScanning = false
+      controls?.stop()
     }
   }, [onScan])
 
