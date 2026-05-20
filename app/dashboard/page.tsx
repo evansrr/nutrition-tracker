@@ -29,12 +29,15 @@ type Entry = {
   }
 }
 
-function toNumber(value: string) {
-  return Number(value.replace(',', '.')) || 0
+function toNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return 0
+  return Number(String(value).replace(',', '.')) || 0
 }
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
   const [profile, setProfile] = useState<Profile | null>(null)
   const [entries, setEntries] = useState<Entry[]>([])
 
@@ -105,12 +108,12 @@ export default function DashboardPage() {
   const totals = useMemo(() => {
     return entries.reduce(
       (acc, entry) => {
-        const factor = Number(entry.quantity) / 100
+        const factor = toNumber(entry.quantity) / 100
 
-        acc.calories += Number(entry.foods.calories || 0) * factor
-        acc.proteins += Number(entry.foods.proteins || 0) * factor
-        acc.carbs += Number(entry.foods.carbs || 0) * factor
-        acc.fats += Number(entry.foods.fats || 0) * factor
+        acc.calories += toNumber(entry.foods.calories) * factor
+        acc.proteins += toNumber(entry.foods.proteins) * factor
+        acc.carbs += toNumber(entry.foods.carbs) * factor
+        acc.fats += toNumber(entry.foods.fats) * factor
 
         return acc
       },
@@ -119,7 +122,6 @@ export default function DashboardPage() {
   }, [entries])
 
   const previewFactor = toNumber(quantity) / 100
-
   const previewCalories = Math.round(toNumber(calories) * previewFactor)
   const previewProteins = Math.round(toNumber(proteins) * previewFactor)
   const previewCarbs = Math.round(toNumber(carbs) * previewFactor)
@@ -177,22 +179,43 @@ export default function DashboardPage() {
       return
     }
 
-    const { data: foodData, error: foodError } = await supabase
-      .from('foods')
-      .insert({
-        barcode: barcode || null,
-        name: foodName,
-        calories: toNumber(calories),
-        proteins: toNumber(proteins),
-        carbs: toNumber(carbs),
-        fats: toNumber(fats),
-      })
-      .select()
-      .single()
+    setSaving(true)
 
-    if (foodError) {
-      alert(foodError.message)
-      return
+    let foodData = null
+
+    if (barcode) {
+      const { data: existingFood } = await supabase
+        .from('foods')
+        .select('id')
+        .eq('barcode', barcode)
+        .maybeSingle()
+
+      if (existingFood) {
+        foodData = existingFood
+      }
+    }
+
+    if (!foodData) {
+      const { data: newFood, error: foodError } = await supabase
+        .from('foods')
+        .insert({
+          barcode: barcode || null,
+          name: foodName,
+          calories: toNumber(calories),
+          proteins: toNumber(proteins),
+          carbs: toNumber(carbs),
+          fats: toNumber(fats),
+        })
+        .select('id')
+        .single()
+
+      if (foodError) {
+        alert(foodError.message)
+        setSaving(false)
+        return
+      }
+
+      foodData = newFood
     }
 
     const today = new Date().toISOString().slice(0, 10)
@@ -209,6 +232,7 @@ export default function DashboardPage() {
 
     if (entryError) {
       alert(entryError.message)
+      setSaving(false)
       return
     }
 
@@ -221,6 +245,7 @@ export default function DashboardPage() {
     setFats('')
 
     await loadData()
+    setSaving(false)
   }
 
   async function deleteEntry(id: string) {
@@ -256,21 +281,13 @@ export default function DashboardPage() {
         <div className="bg-white p-5 rounded-xl shadow space-y-3">
           <h2 className="text-xl font-bold">Ajouter un aliment</h2>
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Code-barres"
-            value={barcode}
-            onChange={(e) => setBarcode(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Code-barres" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
 
           <button onClick={() => fetchBarcode()} className="border p-3 rounded w-full">
             Récupérer avec OpenFoodFacts
           </button>
 
-          <button
-            onClick={() => setShowScanner(true)}
-            className="border p-3 rounded w-full"
-          >
+          <button onClick={() => setShowScanner(true)} className="border p-3 rounded w-full">
             Scanner avec la caméra
           </button>
 
@@ -278,69 +295,27 @@ export default function DashboardPage() {
             <div className="border p-3 rounded space-y-3">
               <BarcodeScanner onScan={handleScan} />
 
-              <button
-                onClick={() => setShowScanner(false)}
-                className="border p-3 rounded w-full"
-              >
+              <button onClick={() => setShowScanner(false)} className="border p-3 rounded w-full">
                 Annuler le scan
               </button>
             </div>
           )}
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Nom de l’aliment"
-            value={foodName}
-            onChange={(e) => setFoodName(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Nom de l’aliment" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Quantité consommée en grammes"
-            type="text"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Quantité consommée en grammes" type="text" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
 
           <p className="text-sm text-gray-500">Valeurs pour 100 g :</p>
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Calories / 100 g"
-            type="text"
-            value={calories}
-            onChange={(e) => setCalories(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Calories / 100 g" type="text" value={calories} onChange={(e) => setCalories(e.target.value)} />
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Protéines / 100 g"
-            type="text"
-            value={proteins}
-            onChange={(e) => setProteins(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Protéines / 100 g" type="text" value={proteins} onChange={(e) => setProteins(e.target.value)} />
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Glucides / 100 g"
-            type="text"
-            value={carbs}
-            onChange={(e) => setCarbs(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Glucides / 100 g" type="text" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
 
-          <input
-            className="border p-3 w-full rounded"
-            placeholder="Lipides / 100 g"
-            type="text"
-            value={fats}
-            onChange={(e) => setFats(e.target.value)}
-          />
+          <input className="border p-3 w-full rounded" placeholder="Lipides / 100 g" type="text" value={fats} onChange={(e) => setFats(e.target.value)} />
 
-          <select
-            className="border p-3 w-full rounded"
-            value={mealType}
-            onChange={(e) => setMealType(e.target.value)}
-          >
+          <select className="border p-3 w-full rounded" value={mealType} onChange={(e) => setMealType(e.target.value)}>
             <option value="petit-déjeuner">Petit-déjeuner</option>
             <option value="déjeuner">Déjeuner</option>
             <option value="dîner">Dîner</option>
@@ -351,8 +326,7 @@ export default function DashboardPage() {
             <p className="font-bold text-lg">Aperçu avant ajout</p>
 
             <p>
-              Pour {quantity || 0} g :{' '}
-              <span className="font-bold">{previewCalories} kcal</span>
+              Pour {quantity || 0} g : <span className="font-bold">{previewCalories} kcal</span>
             </p>
 
             <p>
@@ -369,20 +343,15 @@ export default function DashboardPage() {
 
             <div className="border-t pt-2 mt-2">
               <p className="font-bold">Après ajout :</p>
-
+              <p>{theoreticalCalories} / {calorieGoal} kcal</p>
               <p>
-                {theoreticalCalories} / {calorieGoal} kcal
-              </p>
-
-              <p>
-                Calories restantes :{' '}
-                <span className="font-bold">{theoreticalRemaining} kcal</span>
+                Calories restantes : <span className="font-bold">{theoreticalRemaining} kcal</span>
               </p>
             </div>
           </div>
 
-          <button onClick={addFoodEntry} className="bg-black text-white p-3 rounded w-full">
-            Ajouter à ma journée
+          <button onClick={addFoodEntry} disabled={saving} className="bg-black text-white p-3 rounded w-full disabled:opacity-50">
+            {saving ? 'Ajout en cours...' : 'Ajouter à ma journée'}
           </button>
         </div>
 
@@ -394,7 +363,7 @@ export default function DashboardPage() {
           )}
 
           {entries.map((entry) => {
-            const factor = Number(entry.quantity) / 100
+            const factor = toNumber(entry.quantity) / 100
 
             return (
               <div key={entry.id} className="border p-3 rounded flex justify-between gap-3">
@@ -404,10 +373,10 @@ export default function DashboardPage() {
                     {entry.meal_type || 'repas'} · {entry.quantity} g
                   </p>
                   <p className="text-sm">
-                    {Math.round(entry.foods.calories * factor)} kcal · P{' '}
-                    {Math.round(entry.foods.proteins * factor)} g · G{' '}
-                    {Math.round(entry.foods.carbs * factor)} g · L{' '}
-                    {Math.round(entry.foods.fats * factor)} g
+                    {Math.round(toNumber(entry.foods.calories) * factor)} kcal · P{' '}
+                    {Math.round(toNumber(entry.foods.proteins) * factor)} g · G{' '}
+                    {Math.round(toNumber(entry.foods.carbs) * factor)} g · L{' '}
+                    {Math.round(toNumber(entry.foods.fats) * factor)} g
                   </p>
                 </div>
 
