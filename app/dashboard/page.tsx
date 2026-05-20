@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
+import { supabase } from '@/lib/supabase'
 
 const BarcodeScanner = dynamic(
   () => import('@/components/BarcodeScanner'),
@@ -19,6 +19,7 @@ type Profile = {
 type Entry = {
   id: string
   quantity: number
+  meal_type: string | null
   foods: {
     name: string
     calories: number
@@ -35,11 +36,12 @@ export default function DashboardPage() {
 
   const [barcode, setBarcode] = useState('')
   const [foodName, setFoodName] = useState('')
+  const [quantity, setQuantity] = useState('100')
   const [calories, setCalories] = useState('')
   const [proteins, setProteins] = useState('')
   const [carbs, setCarbs] = useState('')
   const [fats, setFats] = useState('')
-  const [quantity, setQuantity] = useState('100')
+  const [mealType, setMealType] = useState('déjeuner')
   const [showScanner, setShowScanner] = useState(false)
 
   async function getUser() {
@@ -63,11 +65,12 @@ export default function DashboardPage() {
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const { data: entriesData, error: entriesError } = await supabase
+    const { data: entriesData, error } = await supabase
       .from('food_entries')
       .select(`
         id,
         quantity,
+        meal_type,
         foods (
           name,
           calories,
@@ -80,8 +83,8 @@ export default function DashboardPage() {
       .eq('consumed_at', today)
       .order('created_at', { ascending: false })
 
-    if (entriesError) {
-      alert(entriesError.message)
+    if (error) {
+      alert(error.message)
       setLoading(false)
       return
     }
@@ -110,6 +113,17 @@ export default function DashboardPage() {
       { calories: 0, proteins: 0, carbs: 0, fats: 0 }
     )
   }, [entries])
+
+  const previewFactor = Number(quantity || 0) / 100
+
+  const previewCalories = Math.round(Number(calories || 0) * previewFactor)
+  const previewProteins = Math.round(Number(proteins || 0) * previewFactor)
+  const previewCarbs = Math.round(Number(carbs || 0) * previewFactor)
+  const previewFats = Math.round(Number(fats || 0) * previewFactor)
+
+  const calorieGoal = profile?.calorie_goal || 2800
+  const theoreticalCalories = Math.round(totals.calories + previewCalories)
+  const theoreticalRemaining = calorieGoal - theoreticalCalories
 
   async function fetchBarcode(code?: string) {
     const codeToSearch = code || barcode
@@ -146,7 +160,7 @@ export default function DashboardPage() {
     await fetchBarcode(code)
   }
 
-  async function handleAddFood() {
+  async function addFoodEntry() {
     const user = await getUser()
 
     if (!user) {
@@ -185,6 +199,7 @@ export default function DashboardPage() {
         user_id: user.id,
         food_id: foodData.id,
         quantity: Number(quantity),
+        meal_type: mealType,
         consumed_at: today,
       })
 
@@ -195,16 +210,16 @@ export default function DashboardPage() {
 
     setBarcode('')
     setFoodName('')
+    setQuantity('100')
     setCalories('')
     setProteins('')
     setCarbs('')
     setFats('')
-    setQuantity('100')
 
     await loadData()
   }
 
-  async function handleDeleteEntry(id: string) {
+  async function deleteEntry(id: string) {
     const { error } = await supabase
       .from('food_entries')
       .delete()
@@ -223,72 +238,182 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="p-6 max-w-3xl mx-auto space-y-8">
-      <h1 className="text-3xl font-bold">Dashboard nutrition</h1>
+    <main className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <h1 className="text-3xl font-bold">Dashboard nutrition</h1>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card title="Calories" value={totals.calories} goal={profile?.calorie_goal || 2800} unit="kcal" />
-        <Card title="Protéines" value={totals.proteins} goal={profile?.protein_goal || 120} unit="g" />
-        <Card title="Glucides" value={totals.carbs} goal={profile?.carbs_goal || 400} unit="g" />
-        <Card title="Lipides" value={totals.fats} goal={profile?.fats_goal || 65} unit="g" />
-      </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Card title="Calories" value={totals.calories} goal={profile?.calorie_goal || 2800} unit="kcal" />
+          <Card title="Protéines" value={totals.proteins} goal={profile?.protein_goal || 120} unit="g" />
+          <Card title="Glucides" value={totals.carbs} goal={profile?.carbs_goal || 400} unit="g" />
+          <Card title="Lipides" value={totals.fats} goal={profile?.fats_goal || 65} unit="g" />
+        </div>
 
-      <div className="border p-5 rounded-xl space-y-4">
-        <h2 className="text-xl font-bold">Ajouter un aliment</h2>
+        <div className="bg-white p-5 rounded-xl shadow space-y-3">
+          <h2 className="text-xl font-bold">Ajouter un aliment</h2>
 
-        <input className="border p-3 w-full rounded" placeholder="Code-barres" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Code-barres"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+          />
 
-        <button onClick={() => fetchBarcode()} className="bg-black text-white p-3 rounded w-full">
-          Récupérer produit
-        </button>
+          <button onClick={() => fetchBarcode()} className="border p-3 rounded w-full">
+            Récupérer avec OpenFoodFacts
+          </button>
 
-        <button onClick={() => setShowScanner(true)} className="border p-3 rounded w-full">
-          Scanner avec la caméra
-        </button>
+          <button
+            onClick={() => setShowScanner(true)}
+            className="border p-3 rounded w-full"
+          >
+            Scanner avec la caméra
+          </button>
 
-        {showScanner && <BarcodeScanner onScan={handleScan} />}
+          {showScanner && (
+            <div className="border p-3 rounded space-y-3">
+              <BarcodeScanner onScan={handleScan} />
 
-        <input className="border p-3 w-full rounded" placeholder="Nom de l’aliment" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
-        <input className="border p-3 w-full rounded" placeholder="Calories / 100 g" type="number" value={calories} onChange={(e) => setCalories(e.target.value)} />
-        <input className="border p-3 w-full rounded" placeholder="Protéines / 100 g" type="number" value={proteins} onChange={(e) => setProteins(e.target.value)} />
-        <input className="border p-3 w-full rounded" placeholder="Glucides / 100 g" type="number" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
-        <input className="border p-3 w-full rounded" placeholder="Lipides / 100 g" type="number" value={fats} onChange={(e) => setFats(e.target.value)} />
-        <input className="border p-3 w-full rounded" placeholder="Quantité consommée en grammes" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-
-        <button onClick={handleAddFood} className="bg-black text-white p-3 rounded w-full">
-          Ajouter
-        </button>
-      </div>
-
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold">Aliments du jour</h2>
-
-        {entries.length === 0 && (
-          <p>Aucun aliment ajouté aujourd’hui.</p>
-        )}
-
-        {entries.map((entry) => {
-          const factor = Number(entry.quantity) / 100
-
-          return (
-            <div key={entry.id} className="border p-4 rounded flex justify-between gap-4">
-              <div>
-                <p className="font-bold">{entry.foods.name}</p>
-                <p>{entry.quantity} g</p>
-                <p>
-                  {Math.round(entry.foods.calories * factor)} kcal · P{' '}
-                  {Math.round(entry.foods.proteins * factor)} g · G{' '}
-                  {Math.round(entry.foods.carbs * factor)} g · L{' '}
-                  {Math.round(entry.foods.fats * factor)} g
-                </p>
-              </div>
-
-              <button onClick={() => handleDeleteEntry(entry.id)} className="text-red-500">
-                Supprimer
+              <button
+                onClick={() => setShowScanner(false)}
+                className="border p-3 rounded w-full"
+              >
+                Annuler le scan
               </button>
             </div>
-          )
-        })}
+          )}
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Nom de l’aliment"
+            value={foodName}
+            onChange={(e) => setFoodName(e.target.value)}
+          />
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Quantité consommée en grammes"
+            type="number"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+
+          <p className="text-sm text-gray-500">Valeurs pour 100 g :</p>
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Calories / 100 g"
+            type="number"
+            value={calories}
+            onChange={(e) => setCalories(e.target.value)}
+          />
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Protéines / 100 g"
+            type="number"
+            value={proteins}
+            onChange={(e) => setProteins(e.target.value)}
+          />
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Glucides / 100 g"
+            type="number"
+            value={carbs}
+            onChange={(e) => setCarbs(e.target.value)}
+          />
+
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Lipides / 100 g"
+            type="number"
+            value={fats}
+            onChange={(e) => setFats(e.target.value)}
+          />
+
+          <select
+            className="border p-3 w-full rounded"
+            value={mealType}
+            onChange={(e) => setMealType(e.target.value)}
+          >
+            <option value="petit-déjeuner">Petit-déjeuner</option>
+            <option value="déjeuner">Déjeuner</option>
+            <option value="dîner">Dîner</option>
+            <option value="collation">Collation</option>
+          </select>
+
+          <div className="bg-gray-100 p-4 rounded-xl space-y-2">
+            <p className="font-bold text-lg">Aperçu avant ajout</p>
+
+            <p>
+              Pour {quantity || 0} g :{' '}
+              <span className="font-bold">{previewCalories} kcal</span>
+            </p>
+
+            <p>
+              Protéines : <span className="font-bold">{previewProteins} g</span>
+            </p>
+
+            <p>
+              Glucides : <span className="font-bold">{previewCarbs} g</span>
+            </p>
+
+            <p>
+              Lipides : <span className="font-bold">{previewFats} g</span>
+            </p>
+
+            <div className="border-t pt-2 mt-2">
+              <p className="font-bold">Après ajout :</p>
+
+              <p>
+                {theoreticalCalories} / {calorieGoal} kcal
+              </p>
+
+              <p>
+                Calories restantes :{' '}
+                <span className="font-bold">{theoreticalRemaining} kcal</span>
+              </p>
+            </div>
+          </div>
+
+          <button onClick={addFoodEntry} className="bg-black text-white p-3 rounded w-full">
+            Ajouter à ma journée
+          </button>
+        </div>
+
+        <div className="bg-white p-5 rounded-xl shadow space-y-3">
+          <h2 className="text-xl font-bold">Aliments du jour</h2>
+
+          {entries.length === 0 && (
+            <p className="text-gray-500">Aucun aliment ajouté aujourd’hui.</p>
+          )}
+
+          {entries.map((entry) => {
+            const factor = Number(entry.quantity) / 100
+
+            return (
+              <div key={entry.id} className="border p-3 rounded flex justify-between gap-3">
+                <div>
+                  <p className="font-bold">{entry.foods.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {entry.meal_type || 'repas'} · {entry.quantity} g
+                  </p>
+                  <p className="text-sm">
+                    {Math.round(entry.foods.calories * factor)} kcal · P{' '}
+                    {Math.round(entry.foods.proteins * factor)} g · G{' '}
+                    {Math.round(entry.foods.carbs * factor)} g · L{' '}
+                    {Math.round(entry.foods.fats * factor)} g
+                  </p>
+                </div>
+
+                <button onClick={() => deleteEntry(entry.id)} className="text-red-600">
+                  Supprimer
+                </button>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </main>
   )
@@ -308,8 +433,8 @@ function Card({
   const percent = Math.min(100, Math.round((value / goal) * 100))
 
   return (
-    <div className="border p-4 rounded">
-      <p>{title}</p>
+    <div className="bg-white p-4 rounded-xl shadow">
+      <p className="text-gray-500">{title}</p>
       <p className="text-2xl font-bold">
         {Math.round(value)} / {goal} {unit}
       </p>
