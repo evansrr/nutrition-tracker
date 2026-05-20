@@ -29,6 +29,10 @@ type Entry = {
   }
 }
 
+function toNumber(value: string) {
+  return Number(value.replace(',', '.')) || 0
+}
+
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -114,12 +118,12 @@ export default function DashboardPage() {
     )
   }, [entries])
 
-  const previewFactor = Number(quantity || 0) / 100
+  const previewFactor = toNumber(quantity) / 100
 
-  const previewCalories = Math.round(Number(calories || 0) * previewFactor)
-  const previewProteins = Math.round(Number(proteins || 0) * previewFactor)
-  const previewCarbs = Math.round(Number(carbs || 0) * previewFactor)
-  const previewFats = Math.round(Number(fats || 0) * previewFactor)
+  const previewCalories = Math.round(toNumber(calories) * previewFactor)
+  const previewProteins = Math.round(toNumber(proteins) * previewFactor)
+  const previewCarbs = Math.round(toNumber(carbs) * previewFactor)
+  const previewFats = Math.round(toNumber(fats) * previewFactor)
 
   const calorieGoal = profile?.calorie_goal || 2800
   const theoreticalCalories = Math.round(totals.calories + previewCalories)
@@ -178,10 +182,10 @@ export default function DashboardPage() {
       .insert({
         barcode: barcode || null,
         name: foodName,
-        calories: Number(calories || 0),
-        proteins: Number(proteins || 0),
-        carbs: Number(carbs || 0),
-        fats: Number(fats || 0),
+        calories: toNumber(calories),
+        proteins: toNumber(proteins),
+        carbs: toNumber(carbs),
+        fats: toNumber(fats),
       })
       .select()
       .single()
@@ -198,7 +202,7 @@ export default function DashboardPage() {
       .insert({
         user_id: user.id,
         food_id: foodData.id,
-        quantity: Number(quantity),
+        quantity: toNumber(quantity),
         meal_type: mealType,
         consumed_at: today,
       })
@@ -293,7 +297,7 @@ export default function DashboardPage() {
           <input
             className="border p-3 w-full rounded"
             placeholder="Quantité consommée en grammes"
-            type="number"
+            type="text"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
           />
@@ -303,7 +307,7 @@ export default function DashboardPage() {
           <input
             className="border p-3 w-full rounded"
             placeholder="Calories / 100 g"
-            type="number"
+            type="text"
             value={calories}
             onChange={(e) => setCalories(e.target.value)}
           />
@@ -311,7 +315,7 @@ export default function DashboardPage() {
           <input
             className="border p-3 w-full rounded"
             placeholder="Protéines / 100 g"
-            type="number"
+            type="text"
             value={proteins}
             onChange={(e) => setProteins(e.target.value)}
           />
@@ -319,7 +323,7 @@ export default function DashboardPage() {
           <input
             className="border p-3 w-full rounded"
             placeholder="Glucides / 100 g"
-            type="number"
+            type="text"
             value={carbs}
             onChange={(e) => setCarbs(e.target.value)}
           />
@@ -327,7 +331,7 @@ export default function DashboardPage() {
           <input
             className="border p-3 w-full rounded"
             placeholder="Lipides / 100 g"
-            type="number"
+            type="text"
             value={fats}
             onChange={(e) => setFats(e.target.value)}
           />
