@@ -4,10 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { supabase } from '@/lib/supabase'
 
-const BarcodeScanner = dynamic(
-  () => import('@/components/BarcodeScanner'),
-  { ssr: false }
-)
+const BarcodeScanner = dynamic(() => import('@/components/BarcodeScanner'), {
+  ssr: false,
+})
 
 type Profile = {
   calorie_goal: number
@@ -121,11 +120,11 @@ export default function DashboardPage() {
     )
   }, [entries])
 
-  const previewFactor = toNumber(quantity) / 100
-  const previewCalories = Math.round(toNumber(calories) * previewFactor)
-  const previewProteins = Math.round(toNumber(proteins) * previewFactor)
-  const previewCarbs = Math.round(toNumber(carbs) * previewFactor)
-  const previewFats = Math.round(toNumber(fats) * previewFactor)
+  const previewQuantity = toNumber(quantity)
+  const previewCalories = Math.round((toNumber(calories) * previewQuantity) / 100)
+  const previewProteins = Math.round((toNumber(proteins) * previewQuantity) / 100)
+  const previewCarbs = Math.round((toNumber(carbs) * previewQuantity) / 100)
+  const previewFats = Math.round((toNumber(fats) * previewQuantity) / 100)
 
   const calorieGoal = profile?.calorie_goal || 2800
   const theoreticalCalories = Math.round(totals.calories + previewCalories)
@@ -181,54 +180,34 @@ export default function DashboardPage() {
 
     setSaving(true)
 
-    let foodData = null
+    const { data: foodData, error: foodError } = await supabase
+      .from('foods')
+      .insert({
+        barcode: barcode || null,
+        name: foodName,
+        calories: toNumber(calories),
+        proteins: toNumber(proteins),
+        carbs: toNumber(carbs),
+        fats: toNumber(fats),
+      })
+      .select()
+      .single()
 
-    if (barcode) {
-      const { data: existingFood } = await supabase
-        .from('foods')
-        .select('id')
-        .eq('barcode', barcode)
-        .maybeSingle()
-
-      if (existingFood) {
-        foodData = existingFood
-      }
-    }
-
-    if (!foodData) {
-      const { data: newFood, error: foodError } = await supabase
-        .from('foods')
-        .insert({
-          barcode: barcode || null,
-          name: foodName,
-          calories: toNumber(calories),
-          proteins: toNumber(proteins),
-          carbs: toNumber(carbs),
-          fats: toNumber(fats),
-        })
-        .select('id')
-        .single()
-
-      if (foodError) {
-        alert(foodError.message)
-        setSaving(false)
-        return
-      }
-
-      foodData = newFood
+    if (foodError) {
+      alert(foodError.message)
+      setSaving(false)
+      return
     }
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const { error: entryError } = await supabase
-      .from('food_entries')
-      .insert({
-        user_id: user.id,
-        food_id: foodData.id,
-        quantity: toNumber(quantity),
-        meal_type: mealType,
-        consumed_at: today,
-      })
+    const { error: entryError } = await supabase.from('food_entries').insert({
+      user_id: user.id,
+      food_id: foodData.id,
+      quantity: toNumber(quantity),
+      meal_type: mealType,
+      consumed_at: today,
+    })
 
     if (entryError) {
       alert(entryError.message)
@@ -249,10 +228,7 @@ export default function DashboardPage() {
   }
 
   async function deleteEntry(id: string) {
-    const { error } = await supabase
-      .from('food_entries')
-      .delete()
-      .eq('id', id)
+    const { error } = await supabase.from('food_entries').delete().eq('id', id)
 
     if (error) {
       alert(error.message)
@@ -294,7 +270,6 @@ export default function DashboardPage() {
           {showScanner && (
             <div className="border p-3 rounded space-y-3">
               <BarcodeScanner onScan={handleScan} />
-
               <button onClick={() => setShowScanner(false)} className="border p-3 rounded w-full">
                 Annuler le scan
               </button>
@@ -324,29 +299,15 @@ export default function DashboardPage() {
 
           <div className="bg-gray-100 p-4 rounded-xl space-y-2">
             <p className="font-bold text-lg">Aperçu avant ajout</p>
-
-            <p>
-              Pour {quantity || 0} g : <span className="font-bold">{previewCalories} kcal</span>
-            </p>
-
-            <p>
-              Protéines : <span className="font-bold">{previewProteins} g</span>
-            </p>
-
-            <p>
-              Glucides : <span className="font-bold">{previewCarbs} g</span>
-            </p>
-
-            <p>
-              Lipides : <span className="font-bold">{previewFats} g</span>
-            </p>
+            <p>Pour {quantity || 0} g : <span className="font-bold">{previewCalories} kcal</span></p>
+            <p>Protéines : <span className="font-bold">{previewProteins} g</span></p>
+            <p>Glucides : <span className="font-bold">{previewCarbs} g</span></p>
+            <p>Lipides : <span className="font-bold">{previewFats} g</span></p>
 
             <div className="border-t pt-2 mt-2">
               <p className="font-bold">Après ajout :</p>
               <p>{theoreticalCalories} / {calorieGoal} kcal</p>
-              <p>
-                Calories restantes : <span className="font-bold">{theoreticalRemaining} kcal</span>
-              </p>
+              <p>Calories restantes : <span className="font-bold">{theoreticalRemaining} kcal</span></p>
             </div>
           </div>
 
@@ -369,14 +330,9 @@ export default function DashboardPage() {
               <div key={entry.id} className="border p-3 rounded flex justify-between gap-3">
                 <div>
                   <p className="font-bold">{entry.foods.name}</p>
-                  <p className="text-sm text-gray-500">
-                    {entry.meal_type || 'repas'} · {entry.quantity} g
-                  </p>
+                  <p className="text-sm text-gray-500">{entry.meal_type || 'repas'} · {entry.quantity} g</p>
                   <p className="text-sm">
-                    {Math.round(toNumber(entry.foods.calories) * factor)} kcal · P{' '}
-                    {Math.round(toNumber(entry.foods.proteins) * factor)} g · G{' '}
-                    {Math.round(toNumber(entry.foods.carbs) * factor)} g · L{' '}
-                    {Math.round(toNumber(entry.foods.fats) * factor)} g
+                    {Math.round(toNumber(entry.foods.calories) * factor)} kcal · P {Math.round(toNumber(entry.foods.proteins) * factor)} g · G {Math.round(toNumber(entry.foods.carbs) * factor)} g · L {Math.round(toNumber(entry.foods.fats) * factor)} g
                   </p>
                 </div>
 
@@ -392,25 +348,13 @@ export default function DashboardPage() {
   )
 }
 
-function Card({
-  title,
-  value,
-  goal,
-  unit,
-}: {
-  title: string
-  value: number
-  goal: number
-  unit: string
-}) {
+function Card({ title, value, goal, unit }: { title: string; value: number; goal: number; unit: string }) {
   const percent = Math.min(100, Math.round((value / goal) * 100))
 
   return (
     <div className="bg-white p-4 rounded-xl shadow">
       <p className="text-gray-500">{title}</p>
-      <p className="text-2xl font-bold">
-        {Math.round(value)} / {goal} {unit}
-      </p>
+      <p className="text-2xl font-bold">{Math.round(value)} / {goal} {unit}</p>
 
       <div className="h-3 bg-gray-200 rounded mt-3">
         <div className="h-3 bg-black rounded" style={{ width: `${percent}%` }} />
