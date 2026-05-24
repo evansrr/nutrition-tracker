@@ -25,17 +25,13 @@ export default function DashboardPage() {
   const [carbs, setCarbs] = useState('')
   const [fats, setFats] = useState('')
   const [grams, setGrams] = useState('100')
-
   const [mealType, setMealType] = useState('Déjeuner')
 
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
 
   async function loadFoods() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     const { data } = await supabase
@@ -48,10 +44,7 @@ export default function DashboardPage() {
   }
 
   async function loadProfile() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
     const { data } = await supabase
@@ -68,44 +61,31 @@ export default function DashboardPage() {
     loadProfile()
   }, [])
 
-  const totalCalories = foods.reduce(
-    (acc, food) => acc + food.calories,
-    0
-  )
+  const totalCalories = foods.reduce((acc, food) => acc + food.calories, 0)
+  const totalProteins = foods.reduce((acc, food) => acc + food.proteins, 0)
+  const totalCarbs = foods.reduce((acc, food) => acc + food.carbs, 0)
+  const totalFats = foods.reduce((acc, food) => acc + food.fats, 0)
 
   const liveCalories = useMemo(() => {
-    return Math.round(
-      (Number(calories || 0) * Number(grams || 0)) / 100
-    )
+    return Math.round((Number(calories || 0) * Number(grams || 0)) / 100)
   }, [calories, grams])
 
   const liveProteins = useMemo(() => {
-    return (
-      (Number(proteins || 0) * Number(grams || 0)) /
-      100
-    ).toFixed(1)
+    return ((Number(proteins || 0) * Number(grams || 0)) / 100).toFixed(1)
   }, [proteins, grams])
 
   const liveCarbs = useMemo(() => {
-    return (
-      (Number(carbs || 0) * Number(grams || 0)) /
-      100
-    ).toFixed(1)
+    return ((Number(carbs || 0) * Number(grams || 0)) / 100).toFixed(1)
   }, [carbs, grams])
 
   const liveFats = useMemo(() => {
-    return (
-      (Number(fats || 0) * Number(grams || 0)) /
-      100
-    ).toFixed(1)
+    return ((Number(fats || 0) * Number(grams || 0)) / 100).toFixed(1)
   }, [fats, grams])
 
   async function addFood() {
     setLoading(true)
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       alert('Utilisateur non connecté')
@@ -113,19 +93,13 @@ export default function DashboardPage() {
       return
     }
 
-    const finalCalories = liveCalories
-
-    const finalProteins = Number(liveProteins)
-    const finalCarbs = Number(liveCarbs)
-    const finalFats = Number(liveFats)
-
     const { error } = await supabase.from('foods').insert({
       user_id: user.id,
       name: foodName,
-      calories: finalCalories,
-      proteins: finalProteins,
-      carbs: finalCarbs,
-      fats: finalFats,
+      calories: liveCalories,
+      proteins: Number(liveProteins),
+      carbs: Number(liveCarbs),
+      fats: Number(liveFats),
       grams: Number(grams),
       meal_type: mealType,
     })
@@ -165,203 +139,187 @@ export default function DashboardPage() {
       const product = data.product
 
       setFoodName(product.product_name || '')
-
-      setCalories(
-        product.nutriments?.['energy-kcal_100g']?.toString() || '0'
-      )
-
-      setProteins(
-        product.nutriments?.proteins_100g?.toString() || '0'
-      )
-
-      setCarbs(
-        product.nutriments?.carbohydrates_100g?.toString() || '0'
-      )
-
-      setFats(
-        product.nutriments?.fat_100g?.toString() || '0'
-      )
-
+      setCalories(product.nutriments?.['energy-kcal_100g']?.toString() || '0')
+      setProteins(product.nutriments?.proteins_100g?.toString() || '0')
+      setCarbs(product.nutriments?.carbohydrates_100g?.toString() || '0')
+      setFats(product.nutriments?.fat_100g?.toString() || '0')
       setGrams('100')
     } catch {
       alert('Erreur récupération produit')
     }
   }
 
+  const calorieGoal = profile?.calorie_goal || 2800
+  const remainingCalories = calorieGoal - totalCalories
+  const afterAddCalories = totalCalories + liveCalories
+  const afterAddRemaining = calorieGoal - afterAddCalories
+
   return (
-    <main className="max-w-xl mx-auto p-4 space-y-6">
-      <h1 className="text-4xl font-bold">
-        Suivi nutritionnel
-      </h1>
+    <main className="min-h-screen bg-neutral-100 text-neutral-900">
+      <div className="mx-auto max-w-md px-4 py-6 space-y-6">
+        <header>
+          <p className="text-sm text-neutral-500">Aujourd’hui</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Nutrition
+          </h1>
+        </header>
 
-      <div className="bg-white border rounded-xl p-4 space-y-4">
-        <button
-          onClick={() => setShowScanner(true)}
-          className="border p-3 rounded w-full"
-        >
-          Scanner avec la caméra
-        </button>
+        <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
+          <div>
+            <p className="text-sm text-neutral-500">Calories</p>
+            <p className="text-4xl font-bold">
+              {totalCalories}
+              <span className="text-lg text-neutral-400"> / {calorieGoal}</span>
+            </p>
+            <p className="text-sm text-neutral-500">
+              Restant : {remainingCalories} kcal
+            </p>
+          </div>
 
-        {showScanner && (
-          <div className="border p-3 rounded space-y-3">
-            <BarcodeScanner onScan={handleScan} />
+          <div className="h-3 rounded-full bg-neutral-200 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-black"
+              style={{
+                width: `${Math.min(100, (totalCalories / calorieGoal) * 100)}%`,
+              }}
+            />
+          </div>
 
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <Macro label="Protéines" value={`${totalProteins.toFixed(1)}g`} />
+            <Macro label="Glucides" value={`${totalCarbs.toFixed(1)}g`} />
+            <Macro label="Lipides" value={`${totalFats.toFixed(1)}g`} />
+          </div>
+        </section>
+
+        <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold">Ajouter</h2>
             <button
-              onClick={() => setShowScanner(false)}
-              className="border p-3 rounded w-full"
+              onClick={() => setShowScanner(true)}
+              className="rounded-full bg-black px-4 py-2 text-sm text-white"
             >
-              Fermer le scanner
+              Scanner
             </button>
           </div>
-        )}
 
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Nom de l'aliment"
-          value={foodName}
-          onChange={(e) => setFoodName(e.target.value)}
-        />
+          {showScanner && (
+            <div className="rounded-2xl border p-3 space-y-3">
+              <BarcodeScanner onScan={handleScan} />
+              <button
+                onClick={() => setShowScanner(false)}
+                className="w-full rounded-xl border py-3"
+              >
+                Fermer
+              </button>
+            </div>
+          )}
 
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Quantité consommée en grammes"
-          type="number"
-          value={grams}
-          onChange={(e) => setGrams(e.target.value)}
-        />
+          <Input placeholder="Nom de l’aliment" value={foodName} setValue={setFoodName} />
+          <Input placeholder="Quantité en grammes" value={grams} setValue={setGrams} type="number" />
 
-        <p className="text-sm text-gray-500">
-          Valeurs pour 100 g :
-        </p>
-
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Calories / 100 g"
-          type="number"
-          value={calories}
-          onChange={(e) => setCalories(e.target.value)}
-        />
-
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Protéines / 100 g"
-          type="number"
-          value={proteins}
-          onChange={(e) => setProteins(e.target.value)}
-        />
-
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Glucides / 100 g"
-          type="number"
-          value={carbs}
-          onChange={(e) => setCarbs(e.target.value)}
-        />
-
-        <input
-          className="border p-3 w-full rounded"
-          placeholder="Lipides / 100 g"
-          type="number"
-          value={fats}
-          onChange={(e) => setFats(e.target.value)}
-        />
-
-        <select
-          className="border p-3 w-full rounded"
-          value={mealType}
-          onChange={(e) => setMealType(e.target.value)}
-        >
-          <option>Petit-déjeuner</option>
-          <option>Déjeuner</option>
-          <option>Dîner</option>
-          <option>Snack</option>
-        </select>
-
-        <div className="bg-gray-100 p-4 rounded space-y-2">
-          <h2 className="font-bold text-2xl">
-            Aperçu avant-ajout
-          </h2>
-
-          <p>
-            Pour {grams} g :
-            <strong> {liveCalories} kcal</strong>
-          </p>
-
-          <p>
-            Protéines :
-            <strong> {liveProteins} g</strong>
-          </p>
-
-          <p>
-            Glucides :
-            <strong> {liveCarbs} g</strong>
-          </p>
-
-          <p>
-            Lipides :
-            <strong> {liveFats} g</strong>
-          </p>
-
-          <div className="border-t pt-3 mt-3">
-            <p className="font-semibold">
-              Après ajout :
-            </p>
-
-            <p>
-              {totalCalories + liveCalories}/
-              {profile?.calorie_goal || 2800} kcal
-            </p>
-
-            <p>
-              Restant :
-              <strong>
-                {' '}
-                {(profile?.calorie_goal || 2800) -
-                  (totalCalories + liveCalories)}
-                kcal
-              </strong>
-            </p>
+          <div className="grid grid-cols-2 gap-3">
+            <Input placeholder="kcal / 100g" value={calories} setValue={setCalories} type="number" />
+            <Input placeholder="Protéines" value={proteins} setValue={setProteins} type="number" />
+            <Input placeholder="Glucides" value={carbs} setValue={setCarbs} type="number" />
+            <Input placeholder="Lipides" value={fats} setValue={setFats} type="number" />
           </div>
-        </div>
 
-        <button
-          onClick={addFood}
-          disabled={loading}
-          className="bg-black text-white p-3 rounded w-full"
-        >
-          {loading ? 'Ajout...' : 'Ajouter'}
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        <h2 className="text-3xl font-bold">
-          Aliments du jour
-        </h2>
-
-        {foods.map((food) => (
-          <div
-            key={food.id}
-            className="border rounded-xl p-4"
+          <select
+            className="w-full rounded-2xl border bg-white px-4 py-3 outline-none"
+            value={mealType}
+            onChange={(e) => setMealType(e.target.value)}
           >
-            <h3 className="font-bold text-xl">
-              {food.name}
-            </h3>
+            <option>Petit-déjeuner</option>
+            <option>Déjeuner</option>
+            <option>Dîner</option>
+            <option>Snack</option>
+          </select>
 
-            <p>{food.calories} kcal</p>
-
-            <p>
-              P: {food.proteins}g • G: {food.carbs}g •
-              L: {food.fats}g
+          <div className="rounded-2xl bg-neutral-100 p-4 space-y-2">
+            <p className="font-semibold">Aperçu</p>
+            <p className="text-3xl font-bold">{liveCalories} kcal</p>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <Macro label="P" value={`${liveProteins}g`} />
+              <Macro label="G" value={`${liveCarbs}g`} />
+              <Macro label="L" value={`${liveFats}g`} />
+            </div>
+            <p className="text-sm text-neutral-500">
+              Après ajout : {afterAddCalories} / {calorieGoal} kcal
             </p>
-
-            <p>{food.grams} g</p>
-
-            <p className="text-sm text-gray-500">
-              {food.meal_type}
+            <p className="text-sm text-neutral-500">
+              Restant après ajout : {afterAddRemaining} kcal
             </p>
           </div>
-        ))}
+
+          <button
+            onClick={addFood}
+            disabled={loading || !foodName}
+            className="w-full rounded-2xl bg-black py-4 font-semibold text-white disabled:opacity-40"
+          >
+            {loading ? 'Ajout...' : 'Ajouter à ma journée'}
+          </button>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Aliments du jour</h2>
+
+          {foods.length === 0 && (
+            <p className="rounded-2xl bg-white p-4 text-neutral-500">
+              Aucun aliment ajouté.
+            </p>
+          )}
+
+          {foods.map((food) => (
+            <div key={food.id} className="rounded-2xl bg-white p-4 shadow-sm">
+              <div className="flex justify-between gap-3">
+                <div>
+                  <h3 className="font-semibold">{food.name}</h3>
+                  <p className="text-sm text-neutral-500">
+                    {food.meal_type} · {food.grams} g
+                  </p>
+                </div>
+                <p className="font-bold">{food.calories} kcal</p>
+              </div>
+
+              <p className="mt-2 text-sm text-neutral-500">
+                P {food.proteins}g · G {food.carbs}g · L {food.fats}g
+              </p>
+            </div>
+          ))}
+        </section>
       </div>
     </main>
+  )
+}
+
+function Input({
+  placeholder,
+  value,
+  setValue,
+  type = 'text',
+}: {
+  placeholder: string
+  value: string
+  setValue: (value: string) => void
+  type?: string
+}) {
+  return (
+    <input
+      className="w-full rounded-2xl border bg-white px-4 py-3 outline-none focus:border-black"
+      placeholder={placeholder}
+      type={type}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  )
+}
+
+function Macro({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-neutral-100 p-3">
+      <p className="text-xs text-neutral-500">{label}</p>
+      <p className="font-semibold">{value}</p>
+    </div>
   )
 }

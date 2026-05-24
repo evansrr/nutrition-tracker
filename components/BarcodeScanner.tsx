@@ -1,6 +1,9 @@
 'use client'
 
-import { BrowserMultiFormatReader } from '@zxing/browser'
+import {
+  BrowserMultiFormatReader,
+  type IScannerControls,
+} from '@zxing/browser'
 import { useEffect, useRef } from 'react'
 
 type Props = {
@@ -17,7 +20,7 @@ export default function BarcodeScanner({
     const reader =
       new BrowserMultiFormatReader()
 
-    let controls: any
+    let controls: IScannerControls | undefined
     let stopped = false
 
     async function startScanner() {
@@ -56,12 +59,12 @@ export default function BarcodeScanner({
     <div className="space-y-3">
       <video
         ref={videoRef}
-        className="w-full rounded border"
+        className="aspect-video w-full rounded-lg border border-stone-200 bg-stone-950 object-cover"
         playsInline
         muted
       />
 
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-stone-500">
         Scanne un code-barres alimentaire
       </p>
     </div>
