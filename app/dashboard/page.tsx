@@ -121,10 +121,22 @@ export default function DashboardPage() {
   }, [entries])
 
   const previewQuantity = toNumber(quantity)
-  const previewCalories = Math.round((toNumber(calories) * previewQuantity) / 100)
-  const previewProteins = Math.round((toNumber(proteins) * previewQuantity) / 100)
-  const previewCarbs = Math.round((toNumber(carbs) * previewQuantity) / 100)
-  const previewFats = Math.round((toNumber(fats) * previewQuantity) / 100)
+
+  const previewCalories = Math.round(
+    (toNumber(calories) * previewQuantity) / 100
+  )
+
+  const previewProteins = Math.round(
+    (toNumber(proteins) * previewQuantity) / 100
+  )
+
+  const previewCarbs = Math.round(
+    (toNumber(carbs) * previewQuantity) / 100
+  )
+
+  const previewFats = Math.round(
+    (toNumber(fats) * previewQuantity) / 100
+  )
 
   const calorieGoal = profile?.calorie_goal || 2800
   const theoreticalCalories = Math.round(totals.calories + previewCalories)
@@ -201,13 +213,15 @@ export default function DashboardPage() {
 
     const today = new Date().toISOString().slice(0, 10)
 
-    const { error: entryError } = await supabase.from('food_entries').insert({
-      user_id: user.id,
-      food_id: foodData.id,
-      quantity: toNumber(quantity),
-      meal_type: mealType,
-      consumed_at: today,
-    })
+    const { error: entryError } = await supabase
+      .from('food_entries')
+      .insert({
+        user_id: user.id,
+        food_id: foodData.id,
+        quantity: toNumber(quantity),
+        meal_type: mealType,
+        consumed_at: today,
+      })
 
     if (entryError) {
       alert(entryError.message)
@@ -228,7 +242,10 @@ export default function DashboardPage() {
   }
 
   async function deleteEntry(id: string) {
-    const { error } = await supabase.from('food_entries').delete().eq('id', id)
+    const { error } = await supabase
+      .from('food_entries')
+      .delete()
+      .eq('id', id)
 
     if (error) {
       alert(error.message)
@@ -248,49 +265,126 @@ export default function DashboardPage() {
         <h1 className="text-3xl font-bold">Dashboard nutrition</h1>
 
         <div className="grid grid-cols-2 gap-4">
-          <Card title="Calories" value={totals.calories} goal={profile?.calorie_goal || 2800} unit="kcal" />
-          <Card title="Protéines" value={totals.proteins} goal={profile?.protein_goal || 120} unit="g" />
-          <Card title="Glucides" value={totals.carbs} goal={profile?.carbs_goal || 400} unit="g" />
-          <Card title="Lipides" value={totals.fats} goal={profile?.fats_goal || 65} unit="g" />
+          <Card
+            title="Calories"
+            value={totals.calories}
+            goal={profile?.calorie_goal || 2800}
+            unit="kcal"
+          />
+
+          <Card
+            title="Protéines"
+            value={totals.proteins}
+            goal={profile?.protein_goal || 120}
+            unit="g"
+          />
+
+          <Card
+            title="Glucides"
+            value={totals.carbs}
+            goal={profile?.carbs_goal || 400}
+            unit="g"
+          />
+
+          <Card
+            title="Lipides"
+            value={totals.fats}
+            goal={profile?.fats_goal || 65}
+            unit="g"
+          />
         </div>
 
         <div className="bg-white p-5 rounded-xl shadow space-y-3">
           <h2 className="text-xl font-bold">Ajouter un aliment</h2>
 
-          <input className="border p-3 w-full rounded" placeholder="Code-barres" value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Code-barres"
+            value={barcode}
+            onChange={(e) => setBarcode(e.target.value)}
+          />
 
-          <button onClick={() => fetchBarcode()} className="border p-3 rounded w-full">
+          <button
+            onClick={() => fetchBarcode()}
+            className="border p-3 rounded w-full"
+          >
             Récupérer avec OpenFoodFacts
           </button>
 
-          <button onClick={() => setShowScanner(true)} className="border p-3 rounded w-full">
+          <button
+            onClick={() => setShowScanner(true)}
+            className="border p-3 rounded w-full"
+          >
             Scanner avec la caméra
           </button>
 
           {showScanner && (
             <div className="border p-3 rounded space-y-3">
               <BarcodeScanner onScan={handleScan} />
-              <button onClick={() => setShowScanner(false)} className="border p-3 rounded w-full">
+
+              <button
+                onClick={() => setShowScanner(false)}
+                className="border p-3 rounded w-full"
+              >
                 Annuler le scan
               </button>
             </div>
           )}
 
-          <input className="border p-3 w-full rounded" placeholder="Nom de l’aliment" value={foodName} onChange={(e) => setFoodName(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Nom de l’aliment"
+            value={foodName}
+            onChange={(e) => setFoodName(e.target.value)}
+          />
 
-          <input className="border p-3 w-full rounded" placeholder="Quantité consommée en grammes" type="text" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Quantité consommée en grammes"
+            type="text"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
 
           <p className="text-sm text-gray-500">Valeurs pour 100 g :</p>
 
-          <input className="border p-3 w-full rounded" placeholder="Calories / 100 g" type="text" value={calories} onChange={(e) => setCalories(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Calories / 100 g"
+            type="text"
+            value={calories}
+            onChange={(e) => setCalories(e.target.value)}
+          />
 
-          <input className="border p-3 w-full rounded" placeholder="Protéines / 100 g" type="text" value={proteins} onChange={(e) => setProteins(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Protéines / 100 g"
+            type="text"
+            value={proteins}
+            onChange={(e) => setProteins(e.target.value)}
+          />
 
-          <input className="border p-3 w-full rounded" placeholder="Glucides / 100 g" type="text" value={carbs} onChange={(e) => setCarbs(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Glucides / 100 g"
+            type="text"
+            value={carbs}
+            onChange={(e) => setCarbs(e.target.value)}
+          />
 
-          <input className="border p-3 w-full rounded" placeholder="Lipides / 100 g" type="text" value={fats} onChange={(e) => setFats(e.target.value)} />
+          <input
+            className="border p-3 w-full rounded"
+            placeholder="Lipides / 100 g"
+            type="text"
+            value={fats}
+            onChange={(e) => setFats(e.target.value)}
+          />
 
-          <select className="border p-3 w-full rounded" value={mealType} onChange={(e) => setMealType(e.target.value)}>
+          <select
+            className="border p-3 w-full rounded"
+            value={mealType}
+            onChange={(e) => setMealType(e.target.value)}
+          >
             <option value="petit-déjeuner">Petit-déjeuner</option>
             <option value="déjeuner">Déjeuner</option>
             <option value="dîner">Dîner</option>
@@ -299,19 +393,48 @@ export default function DashboardPage() {
 
           <div className="bg-gray-100 p-4 rounded-xl space-y-2">
             <p className="font-bold text-lg">Aperçu avant ajout</p>
-            <p>Pour {quantity || 0} g : <span className="font-bold">{previewCalories} kcal</span></p>
-            <p>Protéines : <span className="font-bold">{previewProteins} g</span></p>
-            <p>Glucides : <span className="font-bold">{previewCarbs} g</span></p>
-            <p>Lipides : <span className="font-bold">{previewFats} g</span></p>
+
+            <p>
+              Pour {quantity || 0} g :{' '}
+              <span className="font-bold">{previewCalories} kcal</span>
+            </p>
+
+            <p>
+              Protéines :{' '}
+              <span className="font-bold">{previewProteins} g</span>
+            </p>
+
+            <p>
+              Glucides :{' '}
+              <span className="font-bold">{previewCarbs} g</span>
+            </p>
+
+            <p>
+              Lipides :{' '}
+              <span className="font-bold">{previewFats} g</span>
+            </p>
 
             <div className="border-t pt-2 mt-2">
               <p className="font-bold">Après ajout :</p>
-              <p>{theoreticalCalories} / {calorieGoal} kcal</p>
-              <p>Calories restantes : <span className="font-bold">{theoreticalRemaining} kcal</span></p>
+
+              <p>
+                {theoreticalCalories} / {calorieGoal} kcal
+              </p>
+
+              <p>
+                Calories restantes :{' '}
+                <span className="font-bold">
+                  {theoreticalRemaining} kcal
+                </span>
+              </p>
             </div>
           </div>
 
-          <button onClick={addFoodEntry} disabled={saving} className="bg-black text-white p-3 rounded w-full disabled:opacity-50">
+          <button
+            onClick={addFoodEntry}
+            disabled={saving}
+            className="bg-black text-white p-3 rounded w-full disabled:opacity-50"
+          >
             {saving ? 'Ajout en cours...' : 'Ajouter à ma journée'}
           </button>
         </div>
@@ -320,23 +443,38 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold">Aliments du jour</h2>
 
           {entries.length === 0 && (
-            <p className="text-gray-500">Aucun aliment ajouté aujourd’hui.</p>
+            <p className="text-gray-500">
+              Aucun aliment ajouté aujourd’hui.
+            </p>
           )}
 
           {entries.map((entry) => {
             const factor = toNumber(entry.quantity) / 100
 
             return (
-              <div key={entry.id} className="border p-3 rounded flex justify-between gap-3">
+              <div
+                key={entry.id}
+                className="border p-3 rounded flex justify-between gap-3"
+              >
                 <div>
                   <p className="font-bold">{entry.foods.name}</p>
-                  <p className="text-sm text-gray-500">{entry.meal_type || 'repas'} · {entry.quantity} g</p>
+
+                  <p className="text-sm text-gray-500">
+                    {entry.meal_type || 'repas'} · {entry.quantity} g
+                  </p>
+
                   <p className="text-sm">
-                    {Math.round(toNumber(entry.foods.calories) * factor)} kcal · P {Math.round(toNumber(entry.foods.proteins) * factor)} g · G {Math.round(toNumber(entry.foods.carbs) * factor)} g · L {Math.round(toNumber(entry.foods.fats) * factor)} g
+                    {Math.round(toNumber(entry.foods.calories) * factor)} kcal ·
+                    P {Math.round(toNumber(entry.foods.proteins) * factor)} g ·
+                    G {Math.round(toNumber(entry.foods.carbs) * factor)} g ·
+                    L {Math.round(toNumber(entry.foods.fats) * factor)} g
                   </p>
                 </div>
 
-                <button onClick={() => deleteEntry(entry.id)} className="text-red-600">
+                <button
+                  onClick={() => deleteEntry(entry.id)}
+                  className="text-red-600"
+                >
                   Supprimer
                 </button>
               </div>
@@ -348,16 +486,32 @@ export default function DashboardPage() {
   )
 }
 
-function Card({ title, value, goal, unit }: { title: string; value: number; goal: number; unit: string }) {
+function Card({
+  title,
+  value,
+  goal,
+  unit,
+}: {
+  title: string
+  value: number
+  goal: number
+  unit: string
+}) {
   const percent = Math.min(100, Math.round((value / goal) * 100))
 
   return (
     <div className="bg-white p-4 rounded-xl shadow">
       <p className="text-gray-500">{title}</p>
-      <p className="text-2xl font-bold">{Math.round(value)} / {goal} {unit}</p>
+
+      <p className="text-2xl font-bold">
+        {Math.round(value)} / {goal} {unit}
+      </p>
 
       <div className="h-3 bg-gray-200 rounded mt-3">
-        <div className="h-3 bg-black rounded" style={{ width: `${percent}%` }} />
+        <div
+          className="h-3 bg-black rounded"
+          style={{ width: `${percent}%` }}
+        />
       </div>
     </div>
   )
