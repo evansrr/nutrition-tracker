@@ -22,25 +22,22 @@ export default function AuthPage() {
     return Number(value.replace(',', '.')) || 0
   }
 
+  const totalPercent =
+    toNumber(proteinPercent) +
+    toNumber(carbsPercent) +
+    toNumber(fatsPercent)
+
   function calculateMacros() {
     const calories = toNumber(calorieGoal)
 
-    const proteinPct = toNumber(proteinPercent)
-    const carbsPct = toNumber(carbsPercent)
-    const fatsPct = toNumber(fatsPercent)
-
-    const proteinCalories = calories * (proteinPct / 100)
-    const carbsCalories = calories * (carbsPct / 100)
-    const fatsCalories = calories * (fatsPct / 100)
-
-    const proteins = proteinCalories / 4
-    const carbs = carbsCalories / 4
-    const fats = fatsCalories / 9
+    const proteinCalories = calories * (toNumber(proteinPercent) / 100)
+    const carbsCalories = calories * (toNumber(carbsPercent) / 100)
+    const fatsCalories = calories * (toNumber(fatsPercent) / 100)
 
     return {
-      proteins: Math.round(proteins),
-      carbs: Math.round(carbs),
-      fats: Math.round(fats),
+      proteins: Math.round(proteinCalories / 4),
+      carbs: Math.round(carbsCalories / 4),
+      fats: Math.round(fatsCalories / 9),
     }
   }
 
@@ -74,13 +71,13 @@ export default function AuthPage() {
       return
     }
 
-    const totalPercent =
-      toNumber(proteinPercent) +
-      toNumber(carbsPercent) +
-      toNumber(fatsPercent)
+    if (totalPercent > 100) {
+      alert('Les pourcentages ne peuvent pas dépasser 100% au total')
+      return
+    }
 
-    if (totalPercent !== 100) {
-      alert('Les pourcentages doivent totaliser 100%')
+    if (totalPercent < 100) {
+      alert('Les pourcentages doivent faire exactement 100% au total')
       return
     }
 
@@ -122,7 +119,6 @@ export default function AuthPage() {
   return (
     <main className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-sm space-y-4">
-
         <div>
           <p className="text-sm text-neutral-500">Bienvenue</p>
           <h1 className="text-3xl font-bold">Suivi nutritionnel</h1>
@@ -203,6 +199,18 @@ export default function AuthPage() {
                 onChange={(e) => setFatsPercent(e.target.value)}
               />
             </div>
+
+            <p
+              className={`mt-2 text-sm ${
+                totalPercent === 100
+                  ? 'text-green-600'
+                  : totalPercent > 100
+                    ? 'text-red-600'
+                    : 'text-neutral-500'
+              }`}
+            >
+              Total : {totalPercent}% / 100%
+            </p>
           </div>
 
           <div className="rounded-2xl bg-neutral-100 p-4 space-y-2">
