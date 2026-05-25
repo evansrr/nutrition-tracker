@@ -12,127 +12,43 @@ type Food = {
   carbs: number
   fats: number
   grams: number
-  meal_type: string
+  meal: string
 }
 
 export default function DashboardPage() {
   const [foods, setFoods] = useState<Food[]>([])
-  const [profile, setProfile] = useState<any>(null)
 
   const [foodName, setFoodName] = useState('')
-  const [calories, setCalories] = useState('')
-  const [proteins, setProteins] = useState('')
-  const [carbs, setCarbs] = useState('')
-  const [fats, setFats] = useState('')
   const [grams, setGrams] = useState('100')
+
+  const [calories100g, setCalories100g] = useState('')
+  const [proteins100g, setProteins100g] = useState('')
+  const [carbs100g, setCarbs100g] = useState('')
+  const [fats100g, setFats100g] = useState('')
+
   const [mealType, setMealType] = useState('Déjeuner')
 
-  const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
 
-  async function loadFoods() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  const calorieGoal = 2800
+  const proteinGoal = 120
+  const carbsGoal = 400
+  const fatsGoal = 65
 
+  async function loadFoods() {
     const { data } = await supabase
       .from('foods')
       .select('*')
-      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    setFoods(data || [])
-  }
-
-  async function loadProfile() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-
-    setProfile(data)
+    if (data) {
+      setFoods(data)
+    }
   }
 
   useEffect(() => {
     loadFoods()
-    loadProfile()
   }, [])
-
-  const totalCalories = foods.reduce((acc, food) => acc + Number(food.calories || 0), 0)
-  const totalProteins = foods.reduce((acc, food) => acc + Number(food.proteins || 0), 0)
-  const totalCarbs = foods.reduce((acc, food) => acc + Number(food.carbs || 0), 0)
-  const totalFats = foods.reduce((acc, food) => acc + Number(food.fats || 0), 0)
-
-  const calorieGoal = profile?.calorie_goal || 2800
-  const proteinGoal = profile?.protein_goal || 120
-  const carbsGoal = profile?.carbs_goal || 400
-  const fatsGoal = profile?.fats_goal || 65
-
-  const remainingCalories = calorieGoal - totalCalories
-  const remainingProteins = proteinGoal - totalProteins
-  const remainingCarbs = carbsGoal - totalCarbs
-  const remainingFats = fatsGoal - totalFats
-
-  const liveCalories = useMemo(() => {
-    return Math.round((Number(calories || 0) * Number(grams || 0)) / 100)
-  }, [calories, grams])
-
-  const liveProteins = useMemo(() => {
-    return ((Number(proteins || 0) * Number(grams || 0)) / 100).toFixed(1)
-  }, [proteins, grams])
-
-  const liveCarbs = useMemo(() => {
-    return ((Number(carbs || 0) * Number(grams || 0)) / 100).toFixed(1)
-  }, [carbs, grams])
-
-  const liveFats = useMemo(() => {
-    return ((Number(fats || 0) * Number(grams || 0)) / 100).toFixed(1)
-  }, [fats, grams])
-
-  const afterAddCalories = totalCalories + liveCalories
-  const afterAddRemaining = calorieGoal - afterAddCalories
-
-  async function addFood() {
-    setLoading(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) {
-      alert('Utilisateur non connecté')
-      setLoading(false)
-      return
-    }
-
-    const { error } = await supabase.from('foods').insert({
-      user_id: user.id,
-      name: foodName,
-      calories: liveCalories,
-      proteins: Number(liveProteins),
-      carbs: Number(liveCarbs),
-      fats: Number(liveFats),
-      grams: Number(grams),
-      meal_type: mealType,
-    })
-
-    setLoading(false)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    setFoodName('')
-    setCalories('')
-    setProteins('')
-    setCarbs('')
-    setFats('')
-    setGrams('100')
-
-    await loadFoods()
-  }
 
   async function handleScan(barcode: string) {
     setShowScanner(false)
@@ -152,205 +68,421 @@ export default function DashboardPage() {
       const product = data.product
 
       setFoodName(product.product_name || '')
-      setCalories(product.nutriments?.['energy-kcal_100g']?.toString() || '0')
-      setProteins(product.nutriments?.proteins_100g?.toString() || '0')
-      setCarbs(product.nutriments?.carbohydrates_100g?.toString() || '0')
-      setFats(product.nutriments?.fat_100g?.toString() || '0')
-      setGrams('100')
+
+      setCalories100g(
+        String(
+          Math.round(product.nutriments?.['energy-kcal_100g'] || 0)
+        )
+      )
+
+      setProteins100g(
+        String(
+          Math.round(product.nutriments?.proteins_100g || 0)
+        )
+      )
+
+      setCarbs100g(
+        String(
+          Math.round(product.nutriments?.carbohydrates_100g || 0)
+        )
+      )
+
+      setFats100g(
+        String(
+          Math.round(product.nutriments?.fat_100g || 0)
+        )
+      )
     } catch {
-      alert('Erreur récupération produit')
+      alert('Erreur scan')
     }
   }
 
+  const preview = useMemo(() => {
+    const qty = Number(grams) || 0
+
+    const factor = qty / 100
+
+    const calories =
+      (Number(calories100g) || 0) * factor
+
+    const proteins =
+      (Number(proteins100g) || 0) * factor
+
+    const carbs =
+      (Number(carbs100g) || 0) * factor
+
+    const fats =
+      (Number(fats100g) || 0) * factor
+
+    return {
+      calories: Math.round(calories),
+      proteins: Number(proteins.toFixed(1)),
+      carbs: Number(carbs.toFixed(1)),
+      fats: Number(fats.toFixed(1)),
+    }
+  }, [
+    grams,
+    calories100g,
+    proteins100g,
+    carbs100g,
+    fats100g,
+  ])
+
+  async function addFood() {
+    if (!foodName) {
+      alert('Nom manquant')
+      return
+    }
+
+    const { error } = await supabase
+      .from('foods')
+      .insert({
+        name: foodName,
+        calories: preview.calories,
+        proteins: preview.proteins,
+        carbs: preview.carbs,
+        fats: preview.fats,
+        grams: Number(grams),
+        meal: mealType,
+      })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setFoodName('')
+    setCalories100g('')
+    setProteins100g('')
+    setCarbs100g('')
+    setFats100g('')
+    setGrams('100')
+
+    loadFoods()
+  }
+
+  async function deleteFood(id: string) {
+    const { error } = await supabase
+      .from('foods')
+      .delete()
+      .eq('id', id)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setFoods((prev) =>
+      prev.filter((food) => food.id !== id)
+    )
+  }
+
+  const totals = foods.reduce(
+    (acc, food) => ({
+      calories: acc.calories + Number(food.calories),
+      proteins: acc.proteins + Number(food.proteins),
+      carbs: acc.carbs + Number(food.carbs),
+      fats: acc.fats + Number(food.fats),
+    }),
+    {
+      calories: 0,
+      proteins: 0,
+      carbs: 0,
+      fats: 0,
+    }
+  )
+
   return (
-    <main className="min-h-screen bg-neutral-100 text-neutral-900">
-      <div className="mx-auto max-w-md px-4 py-6 space-y-6">
-        <header>
-          <p className="text-sm text-neutral-500">Aujourd’hui</p>
-          <h1 className="text-3xl font-bold tracking-tight">Nutrition</h1>
-        </header>
+    <main className="min-h-screen bg-neutral-100 p-4 space-y-6">
 
-        <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
-          <div>
-            <p className="text-sm text-neutral-500">Calories</p>
-            <p className="text-4xl font-bold">
-              {Math.round(totalCalories)}
-              <span className="text-lg text-neutral-400"> / {calorieGoal}</span>
+      <section className="bg-white rounded-3xl p-6 shadow-sm">
+        <p className="text-neutral-500">Aujourd’hui</p>
+
+        <h1 className="text-5xl font-bold mb-6">
+          Nutrition
+        </h1>
+
+        <div>
+          <p className="text-neutral-500 mb-1">
+            Calories
+          </p>
+
+          <div className="flex items-end gap-2">
+            <span className="text-6xl font-bold">
+              {totals.calories}
+            </span>
+
+            <span className="text-3xl text-neutral-400 mb-1">
+              / {calorieGoal}
+            </span>
+          </div>
+
+          <p className="text-neutral-500 mt-2">
+            Restant : {calorieGoal - totals.calories} kcal
+          </p>
+        </div>
+
+        <div className="h-4 bg-neutral-200 rounded-full mt-6 overflow-hidden">
+          <div
+            className="h-full bg-black rounded-full"
+            style={{
+              width: `${Math.min(
+                (totals.calories / calorieGoal) * 100,
+                100
+              )}%`,
+            }}
+          />
+        </div>
+
+        <div className="grid grid-cols-3 gap-3 mt-6">
+
+          <div className="bg-neutral-100 rounded-2xl p-3 text-center">
+            <p className="text-neutral-500 text-sm">
+              Protéines
             </p>
-            <p className="text-sm text-neutral-500">
-              Restant : {Math.round(remainingCalories)} kcal
+
+            <p className="font-bold text-2xl">
+              {totals.proteins}g
             </p>
-          </div>
 
-          <div className="h-3 rounded-full bg-neutral-200 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-black"
-              style={{
-                width: `${Math.min(100, (totalCalories / calorieGoal) * 100)}%`,
-              }}
-            />
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <Macro
-              label="Protéines"
-              value={`${totalProteins.toFixed(1)} / ${proteinGoal}g`}
-              remaining={`${Math.max(0, remainingProteins).toFixed(1)}g restants`}
-            />
-            <Macro
-              label="Glucides"
-              value={`${totalCarbs.toFixed(1)} / ${carbsGoal}g`}
-              remaining={`${Math.max(0, remainingCarbs).toFixed(1)}g restants`}
-            />
-            <Macro
-              label="Lipides"
-              value={`${totalFats.toFixed(1)} / ${fatsGoal}g`}
-              remaining={`${Math.max(0, remainingFats).toFixed(1)}g restants`}
-            />
-          </div>
-        </section>
-
-        <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Ajouter</h2>
-            <button
-              onClick={() => setShowScanner(true)}
-              className="rounded-full bg-black px-4 py-2 text-sm text-white"
-            >
-              Scanner
-            </button>
-          </div>
-
-          {showScanner && (
-            <div className="rounded-2xl border p-3 space-y-3">
-              <BarcodeScanner onScan={handleScan} />
-              <button
-                onClick={() => setShowScanner(false)}
-                className="w-full rounded-xl border py-3"
-              >
-                Fermer
-              </button>
-            </div>
-          )}
-
-          <Input placeholder="Nom de l’aliment" value={foodName} setValue={setFoodName} />
-          <Input placeholder="Quantité en grammes" value={grams} setValue={setGrams} type="number" />
-
-          <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="kcal / 100g" value={calories} setValue={setCalories} type="number" />
-            <Input placeholder="Protéines" value={proteins} setValue={setProteins} type="number" />
-            <Input placeholder="Glucides" value={carbs} setValue={setCarbs} type="number" />
-            <Input placeholder="Lipides" value={fats} setValue={setFats} type="number" />
-          </div>
-
-          <select
-            className="w-full rounded-2xl border bg-white px-4 py-3 outline-none"
-            value={mealType}
-            onChange={(e) => setMealType(e.target.value)}
-          >
-            <option>Petit-déjeuner</option>
-            <option>Déjeuner</option>
-            <option>Dîner</option>
-            <option>Snack</option>
-          </select>
-
-          <div className="rounded-2xl bg-neutral-100 p-4 space-y-2">
-            <p className="font-semibold">Aperçu</p>
-            <p className="text-3xl font-bold">{liveCalories} kcal</p>
-
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <Macro label="P" value={`${liveProteins}g`} />
-              <Macro label="G" value={`${liveCarbs}g`} />
-              <Macro label="L" value={`${liveFats}g`} />
-            </div>
-
-            <p className="text-sm text-neutral-500">
-              Après ajout : {afterAddCalories} / {calorieGoal} kcal
-            </p>
-            <p className="text-sm text-neutral-500">
-              Restant après ajout : {afterAddRemaining} kcal
+            <p className="text-xs text-neutral-500">
+              Restant : {Math.max(0, proteinGoal - totals.proteins)}g
             </p>
           </div>
+
+          <div className="bg-neutral-100 rounded-2xl p-3 text-center">
+            <p className="text-neutral-500 text-sm">
+              Glucides
+            </p>
+
+            <p className="font-bold text-2xl">
+              {totals.carbs}g
+            </p>
+
+            <p className="text-xs text-neutral-500">
+              Restant : {Math.max(0, carbsGoal - totals.carbs)}g
+            </p>
+          </div>
+
+          <div className="bg-neutral-100 rounded-2xl p-3 text-center">
+            <p className="text-neutral-500 text-sm">
+              Lipides
+            </p>
+
+            <p className="font-bold text-2xl">
+              {totals.fats}g
+            </p>
+
+            <p className="text-xs text-neutral-500">
+              Restant : {Math.max(0, fatsGoal - totals.fats)}g
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <section className="bg-white rounded-3xl p-6 shadow-sm space-y-4">
+
+        <div className="flex items-center justify-between">
+          <h2 className="text-3xl font-bold">
+            Ajouter
+          </h2>
 
           <button
-            onClick={addFood}
-            disabled={loading || !foodName}
-            className="w-full rounded-2xl bg-black py-4 font-semibold text-white disabled:opacity-40"
+            onClick={() => setShowScanner(true)}
+            className="bg-black text-white px-6 py-3 rounded-full"
           >
-            {loading ? 'Ajout...' : 'Ajouter à ma journée'}
+            Scanner
           </button>
-        </section>
+        </div>
 
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold">Aliments du jour</h2>
+        {showScanner && (
+          <div className="space-y-3">
+            <BarcodeScanner onScan={handleScan} />
 
-          {foods.length === 0 && (
-            <p className="rounded-2xl bg-white p-4 text-neutral-500">
-              Aucun aliment ajouté.
-            </p>
-          )}
+            <button
+              onClick={() => setShowScanner(false)}
+              className="border p-3 rounded-2xl w-full"
+            >
+              Fermer le scanner
+            </button>
+          </div>
+        )}
 
-          {foods.map((food) => (
-            <div key={food.id} className="rounded-2xl bg-white p-4 shadow-sm">
-              <div className="flex justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold">{food.name}</h3>
-                  <p className="text-sm text-neutral-500">
-                    {food.meal_type} · {food.grams} g
-                  </p>
-                </div>
-                <p className="font-bold">{food.calories} kcal</p>
-              </div>
+        <input
+          className="border rounded-2xl p-4 w-full"
+          placeholder="Nom de l’aliment"
+          value={foodName}
+          onChange={(e) => setFoodName(e.target.value)}
+        />
 
-              <p className="mt-2 text-sm text-neutral-500">
-                P {food.proteins}g · G {food.carbs}g · L {food.fats}g
+        <input
+          className="border rounded-2xl p-4 w-full"
+          placeholder="Quantité en grammes"
+          value={grams}
+          onChange={(e) => setGrams(e.target.value)}
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+
+          <input
+            className="border rounded-2xl p-4"
+            placeholder="kcal / 100g"
+            value={calories100g}
+            onChange={(e) =>
+              setCalories100g(e.target.value)
+            }
+          />
+
+          <input
+            className="border rounded-2xl p-4"
+            placeholder="Protéines"
+            value={proteins100g}
+            onChange={(e) =>
+              setProteins100g(e.target.value)
+            }
+          />
+
+          <input
+            className="border rounded-2xl p-4"
+            placeholder="Glucides"
+            value={carbs100g}
+            onChange={(e) =>
+              setCarbs100g(e.target.value)
+            }
+          />
+
+          <input
+            className="border rounded-2xl p-4"
+            placeholder="Lipides"
+            value={fats100g}
+            onChange={(e) =>
+              setFats100g(e.target.value)
+            }
+          />
+
+        </div>
+
+        <select
+          className="border rounded-2xl p-4 w-full"
+          value={mealType}
+          onChange={(e) =>
+            setMealType(e.target.value)
+          }
+        >
+          <option>Petit-déjeuner</option>
+          <option>Déjeuner</option>
+          <option>Dîner</option>
+          <option>Collation</option>
+        </select>
+
+        <div className="bg-neutral-100 rounded-3xl p-6">
+          <h3 className="text-2xl font-bold mb-4">
+            Aperçu
+          </h3>
+
+          <p className="text-6xl font-bold">
+            {preview.calories} kcal
+          </p>
+
+          <div className="grid grid-cols-3 mt-6">
+
+            <div>
+              <p className="text-neutral-500">P</p>
+              <p className="text-2xl font-semibold">
+                {preview.proteins}g
               </p>
             </div>
-          ))}
-        </section>
-      </div>
+
+            <div>
+              <p className="text-neutral-500">G</p>
+              <p className="text-2xl font-semibold">
+                {preview.carbs}g
+              </p>
+            </div>
+
+            <div>
+              <p className="text-neutral-500">L</p>
+              <p className="text-2xl font-semibold">
+                {preview.fats}g
+              </p>
+            </div>
+
+          </div>
+
+          <div className="mt-6 text-neutral-500 space-y-1">
+            <p>
+              Après ajout :{' '}
+              {totals.calories + preview.calories}
+              {' / '}
+              {calorieGoal} kcal
+            </p>
+
+            <p>
+              Restant après ajout :{' '}
+              {calorieGoal -
+                (totals.calories + preview.calories)}{' '}
+              kcal
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={addFood}
+          className="w-full bg-black text-white py-5 rounded-3xl text-2xl font-semibold"
+        >
+          Ajouter à ma journée
+        </button>
+
+      </section>
+
+      <section className="space-y-4">
+
+        <h2 className="text-5xl font-bold">
+          Aliments du jour
+        </h2>
+
+        {foods.length === 0 && (
+          <div className="bg-white rounded-3xl p-6 text-neutral-500">
+            Aucun aliment ajouté.
+          </div>
+        )}
+
+        {foods.map((food) => (
+          <div
+            key={food.id}
+            className="relative bg-white rounded-3xl p-6 shadow-sm"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-2xl font-bold">
+                  {food.name}
+                </h3>
+
+                <p className="text-neutral-500 text-xl">
+                  {food.meal} · {food.grams} g
+                </p>
+
+                <p className="text-neutral-500 text-xl mt-3">
+                  P {food.proteins}g · G {food.carbs}g · L {food.fats}g
+                </p>
+              </div>
+
+              <p className="text-3xl font-bold">
+                {food.calories} kcal
+              </p>
+            </div>
+
+            <button
+              onClick={() => deleteFood(food.id)}
+              className="absolute bottom-5 right-5 text-2xl"
+            >
+              🗑️
+            </button>
+          </div>
+        ))}
+
+      </section>
     </main>
-  )
-}
-
-function Input({
-  placeholder,
-  value,
-  setValue,
-  type = 'text',
-}: {
-  placeholder: string
-  value: string
-  setValue: (value: string) => void
-  type?: string
-}) {
-  return (
-    <input
-      className="w-full rounded-2xl border bg-white px-4 py-3 outline-none focus:border-black"
-      placeholder={placeholder}
-      type={type}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-    />
-  )
-}
-
-function Macro({
-  label,
-  value,
-  remaining,
-}: {
-  label: string
-  value: string
-  remaining?: string
-}) {
-  return (
-    <div className="rounded-2xl bg-neutral-100 p-3">
-      <p className="text-xs text-neutral-500">{label}</p>
-      <p className="font-semibold">{value}</p>
-      {remaining && (
-        <p className="text-xs text-neutral-500 mt-1">{remaining}</p>
-      )}
-    </div>
   )
 }
