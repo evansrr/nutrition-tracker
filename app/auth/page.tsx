@@ -22,6 +22,33 @@ export default function AuthPage() {
     return Number(value.replace(',', '.')) || 0
   }
 
+  function limitMacroInput(
+    newValue: string,
+    otherValue1: string,
+    otherValue2: string,
+    setter: (value: string) => void
+  ) {
+    if (newValue === '') {
+      setter('')
+      return
+    }
+
+    const cleanedValue = newValue.replace(',', '.')
+    const numberValue = Number(cleanedValue)
+
+    if (Number.isNaN(numberValue) || numberValue < 0) return
+
+    const otherTotal = toNumber(otherValue1) + toNumber(otherValue2)
+    const maxAllowed = 100 - otherTotal
+
+    if (numberValue > maxAllowed) {
+      setter(String(Math.max(0, maxAllowed)))
+      return
+    }
+
+    setter(newValue)
+  }
+
   const totalPercent =
     toNumber(proteinPercent) +
     toNumber(carbsPercent) +
@@ -71,12 +98,7 @@ export default function AuthPage() {
       return
     }
 
-    if (totalPercent > 100) {
-      alert('Les pourcentages ne peuvent pas dépasser 100% au total')
-      return
-    }
-
-    if (totalPercent < 100) {
+    if (totalPercent !== 100) {
       alert('Les pourcentages doivent faire exactement 100% au total')
       return
     }
@@ -180,7 +202,14 @@ export default function AuthPage() {
                 placeholder="Prot %"
                 className="border rounded-2xl p-3"
                 value={proteinPercent}
-                onChange={(e) => setProteinPercent(e.target.value)}
+                onChange={(e) =>
+                  limitMacroInput(
+                    e.target.value,
+                    carbsPercent,
+                    fatsPercent,
+                    setProteinPercent
+                  )
+                }
               />
 
               <input
@@ -188,7 +217,14 @@ export default function AuthPage() {
                 placeholder="Gluc %"
                 className="border rounded-2xl p-3"
                 value={carbsPercent}
-                onChange={(e) => setCarbsPercent(e.target.value)}
+                onChange={(e) =>
+                  limitMacroInput(
+                    e.target.value,
+                    proteinPercent,
+                    fatsPercent,
+                    setCarbsPercent
+                  )
+                }
               />
 
               <input
@@ -196,7 +232,14 @@ export default function AuthPage() {
                 placeholder="Lip %"
                 className="border rounded-2xl p-3"
                 value={fatsPercent}
-                onChange={(e) => setFatsPercent(e.target.value)}
+                onChange={(e) =>
+                  limitMacroInput(
+                    e.target.value,
+                    proteinPercent,
+                    carbsPercent,
+                    setFatsPercent
+                  )
+                }
               />
             </div>
 
@@ -204,9 +247,7 @@ export default function AuthPage() {
               className={`mt-2 text-sm ${
                 totalPercent === 100
                   ? 'text-green-600'
-                  : totalPercent > 100
-                    ? 'text-red-600'
-                    : 'text-neutral-500'
+                  : 'text-neutral-500'
               }`}
             >
               Total : {totalPercent}% / 100%
