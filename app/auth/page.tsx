@@ -10,16 +10,27 @@ export default function AuthPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  const [weight, setWeight] = useState('60')
+  const [height, setHeight] = useState('170')
+  const [calorieGoal, setCalorieGoal] = useState('2800')
+  const [proteinGoal, setProteinGoal] = useState('120')
+  const [carbsGoal, setCarbsGoal] = useState('400')
+  const [fatsGoal, setFatsGoal] = useState('65')
+
+  function toNumber(value: string) {
+    return Number(value.replace(',', '.')) || 0
+  }
+
   async function createProfile(userId: string) {
     await supabase.from('profiles').upsert({
       id: userId,
       username: email,
-      weight: 60,
-      height: 170,
-      calorie_goal: 2800,
-      protein_goal: 120,
-      carbs_goal: 400,
-      fats_goal: 65,
+      weight: toNumber(weight),
+      height: toNumber(height),
+      calorie_goal: toNumber(calorieGoal),
+      protein_goal: toNumber(proteinGoal),
+      carbs_goal: toNumber(carbsGoal),
+      fats_goal: toNumber(fatsGoal),
     })
   }
 
@@ -38,15 +49,14 @@ export default function AuthPage() {
       await createProfile(data.user.id)
     }
 
-    alert('Compte créé !')
+    alert('Compte créé ! Tu peux maintenant te connecter.')
   }
 
   async function signIn() {
-    const { data, error } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
     if (error) {
       alert(error.message)
@@ -59,82 +69,99 @@ export default function AuthPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f5f0] px-4 py-8 text-stone-900 sm:px-6">
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
-        <div className="grid w-full overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm md:grid-cols-[1.05fr_0.95fr]">
-          <div className="flex min-h-[320px] flex-col justify-between bg-stone-900 p-8 text-white sm:p-10">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.18em] text-lime-200">
-                Nutrition
-              </p>
-              <h1 className="mt-5 max-w-sm text-4xl font-semibold leading-tight sm:text-5xl">
-                Suivi simple, repas clairs.
-              </h1>
-            </div>
+    <main className="min-h-screen bg-neutral-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-sm space-y-4">
+        <div>
+          <p className="text-sm text-neutral-500">Bienvenue</p>
+          <h1 className="text-3xl font-bold">Suivi nutritionnel</h1>
+        </div>
 
-            <p className="mt-10 max-w-sm text-base leading-7 text-stone-300">
-              Connecte-toi pour ajouter tes aliments, vérifier tes apports et garder une vue calme sur ta journée.
-            </p>
+        <input
+          type="email"
+          placeholder="Email"
+          className="w-full border rounded-2xl p-3"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          type="password"
+          placeholder="Mot de passe"
+          className="w-full border rounded-2xl p-3"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <div className="border-t pt-4 space-y-3">
+          <p className="font-semibold">Tes objectifs</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              placeholder="Poids"
+              className="border rounded-2xl p-3"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+            />
+
+            <input
+              type="number"
+              placeholder="Taille"
+              className="border rounded-2xl p-3"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+            />
           </div>
 
-          <div className="p-6 sm:p-8">
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold text-stone-950">
-                Bienvenue
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-stone-500">
-                Entre tes identifiants pour accéder à ton tableau de bord.
-              </p>
-            </div>
+          <input
+            type="number"
+            placeholder="Objectif calories"
+            className="w-full border rounded-2xl p-3"
+            value={calorieGoal}
+            onChange={(e) => setCalorieGoal(e.target.value)}
+          />
 
-            <label className="mb-4 block">
-              <span className="mb-2 block text-sm font-medium text-stone-700">
-                Email
-              </span>
-              <input
-                type="email"
-                placeholder="toi@exemple.com"
-                className="w-full rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-stone-950 outline-none transition focus:border-stone-400 focus:bg-white focus:ring-4 focus:ring-stone-100"
-                value={email}
-                onChange={(e) =>
-                  setEmail(e.target.value)
-                }
-              />
-            </label>
+          <div className="grid grid-cols-3 gap-3">
+            <input
+              type="number"
+              placeholder="Protéines"
+              className="border rounded-2xl p-3"
+              value={proteinGoal}
+              onChange={(e) => setProteinGoal(e.target.value)}
+            />
 
-            <label className="mb-6 block">
-              <span className="mb-2 block text-sm font-medium text-stone-700">
-                Mot de passe
-              </span>
-              <input
-                type="password"
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-stone-950 outline-none transition focus:border-stone-400 focus:bg-white focus:ring-4 focus:ring-stone-100"
-                value={password}
-                onChange={(e) =>
-                  setPassword(e.target.value)
-                }
-              />
-            </label>
+            <input
+              type="number"
+              placeholder="Glucides"
+              className="border rounded-2xl p-3"
+              value={carbsGoal}
+              onChange={(e) => setCarbsGoal(e.target.value)}
+            />
 
-            <div className="grid gap-3">
-              <button
-                onClick={signIn}
-                className="w-full rounded-lg bg-stone-950 px-4 py-3 font-medium text-white transition hover:bg-stone-800"
-              >
-                Se connecter
-              </button>
-
-              <button
-                onClick={signUp}
-                className="w-full rounded-lg border border-stone-200 px-4 py-3 font-medium text-stone-800 transition hover:border-stone-300 hover:bg-stone-50"
-              >
-                Créer un compte
-              </button>
-            </div>
+            <input
+              type="number"
+              placeholder="Lipides"
+              className="border rounded-2xl p-3"
+              value={fatsGoal}
+              onChange={(e) => setFatsGoal(e.target.value)}
+            />
           </div>
         </div>
-      </section>
+
+        <button
+          onClick={signUp}
+          className="w-full bg-black text-white rounded-2xl py-3 font-semibold"
+        >
+          Créer un compte
+        </button>
+
+        <button
+          onClick={signIn}
+          className="w-full border rounded-2xl py-3 font-semibold"
+        >
+          Se connecter
+        </button>
+      </div>
     </main>
   )
 }

@@ -61,10 +61,20 @@ export default function DashboardPage() {
     loadProfile()
   }, [])
 
-  const totalCalories = foods.reduce((acc, food) => acc + food.calories, 0)
-  const totalProteins = foods.reduce((acc, food) => acc + food.proteins, 0)
-  const totalCarbs = foods.reduce((acc, food) => acc + food.carbs, 0)
-  const totalFats = foods.reduce((acc, food) => acc + food.fats, 0)
+  const totalCalories = foods.reduce((acc, food) => acc + Number(food.calories || 0), 0)
+  const totalProteins = foods.reduce((acc, food) => acc + Number(food.proteins || 0), 0)
+  const totalCarbs = foods.reduce((acc, food) => acc + Number(food.carbs || 0), 0)
+  const totalFats = foods.reduce((acc, food) => acc + Number(food.fats || 0), 0)
+
+  const calorieGoal = profile?.calorie_goal || 2800
+  const proteinGoal = profile?.protein_goal || 120
+  const carbsGoal = profile?.carbs_goal || 400
+  const fatsGoal = profile?.fats_goal || 65
+
+  const remainingCalories = calorieGoal - totalCalories
+  const remainingProteins = proteinGoal - totalProteins
+  const remainingCarbs = carbsGoal - totalCarbs
+  const remainingFats = fatsGoal - totalFats
 
   const liveCalories = useMemo(() => {
     return Math.round((Number(calories || 0) * Number(grams || 0)) / 100)
@@ -81,6 +91,9 @@ export default function DashboardPage() {
   const liveFats = useMemo(() => {
     return ((Number(fats || 0) * Number(grams || 0)) / 100).toFixed(1)
   }, [fats, grams])
+
+  const afterAddCalories = totalCalories + liveCalories
+  const afterAddRemaining = calorieGoal - afterAddCalories
 
   async function addFood() {
     setLoading(true)
@@ -149,30 +162,23 @@ export default function DashboardPage() {
     }
   }
 
-  const calorieGoal = profile?.calorie_goal || 2800
-  const remainingCalories = calorieGoal - totalCalories
-  const afterAddCalories = totalCalories + liveCalories
-  const afterAddRemaining = calorieGoal - afterAddCalories
-
   return (
     <main className="min-h-screen bg-neutral-100 text-neutral-900">
       <div className="mx-auto max-w-md px-4 py-6 space-y-6">
         <header>
           <p className="text-sm text-neutral-500">Aujourd’hui</p>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Nutrition
-          </h1>
+          <h1 className="text-3xl font-bold tracking-tight">Nutrition</h1>
         </header>
 
         <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
           <div>
             <p className="text-sm text-neutral-500">Calories</p>
             <p className="text-4xl font-bold">
-              {totalCalories}
+              {Math.round(totalCalories)}
               <span className="text-lg text-neutral-400"> / {calorieGoal}</span>
             </p>
             <p className="text-sm text-neutral-500">
-              Restant : {remainingCalories} kcal
+              Restant : {Math.round(remainingCalories)} kcal
             </p>
           </div>
 
@@ -186,9 +192,21 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3 text-center">
-            <Macro label="Protéines" value={`${totalProteins.toFixed(1)}g`} />
-            <Macro label="Glucides" value={`${totalCarbs.toFixed(1)}g`} />
-            <Macro label="Lipides" value={`${totalFats.toFixed(1)}g`} />
+            <Macro
+              label="Protéines"
+              value={`${totalProteins.toFixed(1)} / ${proteinGoal}g`}
+              remaining={`${Math.max(0, remainingProteins).toFixed(1)}g restants`}
+            />
+            <Macro
+              label="Glucides"
+              value={`${totalCarbs.toFixed(1)} / ${carbsGoal}g`}
+              remaining={`${Math.max(0, remainingCarbs).toFixed(1)}g restants`}
+            />
+            <Macro
+              label="Lipides"
+              value={`${totalFats.toFixed(1)} / ${fatsGoal}g`}
+              remaining={`${Math.max(0, remainingFats).toFixed(1)}g restants`}
+            />
           </div>
         </section>
 
@@ -239,11 +257,13 @@ export default function DashboardPage() {
           <div className="rounded-2xl bg-neutral-100 p-4 space-y-2">
             <p className="font-semibold">Aperçu</p>
             <p className="text-3xl font-bold">{liveCalories} kcal</p>
+
             <div className="grid grid-cols-3 gap-2 text-sm">
               <Macro label="P" value={`${liveProteins}g`} />
               <Macro label="G" value={`${liveCarbs}g`} />
               <Macro label="L" value={`${liveFats}g`} />
             </div>
+
             <p className="text-sm text-neutral-500">
               Après ajout : {afterAddCalories} / {calorieGoal} kcal
             </p>
@@ -315,11 +335,22 @@ function Input({
   )
 }
 
-function Macro({ label, value }: { label: string; value: string }) {
+function Macro({
+  label,
+  value,
+  remaining,
+}: {
+  label: string
+  value: string
+  remaining?: string
+}) {
   return (
     <div className="rounded-2xl bg-neutral-100 p-3">
       <p className="text-xs text-neutral-500">{label}</p>
       <p className="font-semibold">{value}</p>
+      {remaining && (
+        <p className="text-xs text-neutral-500 mt-1">{remaining}</p>
+      )}
     </div>
   )
 }
