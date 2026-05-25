@@ -6,6 +6,7 @@ import BarcodeScanner from '@/components/BarcodeScanner'
 
 type Food = {
   id: string
+  user_id: string
   name: string
   calories: number
   proteins: number
@@ -37,11 +38,16 @@ export default function DashboardPage() {
 
     if (!user) return
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('foods')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     setFoods(data || [])
   }
@@ -143,21 +149,30 @@ export default function DashboardPage() {
   }
 
   async function deleteFood(id: string) {
-    const confirmed = window.confirm('Es-tu sûr de vouloir supprimer cet aliment ?')
+    const confirmed = window.confirm(
+      'Es-tu sûr de vouloir supprimer cet aliment ?'
+    )
 
     if (!confirmed) return
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) return
 
     const { error } = await supabase
       .from('foods')
       .delete()
       .eq('id', id)
+      .eq('user_id', user.id)
 
     if (error) {
       alert(error.message)
       return
     }
 
-    setFoods((prev) => prev.filter((food) => food.id !== id))
+    await loadFoods()
   }
 
   async function handleScan(barcode: string) {
