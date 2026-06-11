@@ -44,35 +44,104 @@ function getNutrient(food: UsdaFood, names: string[]) {
   return nutrient?.value || 0
 }
 
+function hasBadKeyword(description: string) {
+  const badWords = [
+    'babyfood',
+    'snack',
+    'dessert',
+    'beverage',
+    'restaurant',
+    'fast food',
+    'candy',
+    'pie',
+    'cake',
+    'cookie',
+    'cookies',
+    'pudding',
+    'nectar',
+    'soda',
+    'drink',
+    'juice',
+    'bar',
+    'cereal bar',
+    'chips',
+    'cracker',
+    'crackers',
+    'sandwich',
+    'soup',
+    'sauce',
+    'gravy',
+    'prepared',
+    'frozen meal',
+    'mixed dish',
+  ]
+
+  return badWords.some((word) => description.includes(word))
+}
+
 function getFoodScore(food: UsdaFood, query: string) {
   const description = food.description?.toLowerCase() || ''
   const search = query.toLowerCase().trim()
 
   let score = 0
 
-  if (description === search) score += 100
-  if (description.includes(search)) score += 50
-  if (description.includes('raw')) score += 30
-  if (description.includes('fresh')) score += 25
-  if (description.includes('cooked')) score += 15
+  if (description === search) score += 120
+  if (description.startsWith(search)) score += 90
+  if (description.includes(search)) score += 60
 
-  if (food.dataType === 'Foundation') score += 20
-  if (food.dataType === 'SR Legacy') score += 15
+  if (food.dataType === 'Foundation') score += 50
+  if (food.dataType === 'SR Legacy') score += 40
+  if (food.dataType === 'Survey (FNDDS)') score += 10
 
-  if (description.includes('babyfood')) score -= 50
-  if (description.includes('snack')) score -= 35
-  if (description.includes('dried')) score -= 25
-  if (description.includes('dehydrated')) score -= 25
-  if (description.includes('chips')) score -= 30
-  if (description.includes('dessert')) score -= 30
-  if (description.includes('beverage')) score -= 25
-  if (description.includes('restaurant')) score -= 25
-  if (description.includes('candy')) score -= 30
-  if (description.includes('pie')) score -= 25
-  if (description.includes('cake')) score -= 25
-  if (description.includes('cookie')) score -= 25
+  if (description.includes('raw')) score += 45
+  if (description.includes('fresh')) score += 35
+  if (description.includes('cooked')) score += 30
+  if (description.includes('roasted')) score += 25
+  if (description.includes('boiled')) score += 20
+  if (description.includes('baked')) score += 15
+  if (description.includes('grilled')) score += 15
+
+  if (description.includes('breast')) score += 15
+  if (description.includes('meat only')) score += 15
+  if (description.includes('whole')) score += 10
+  if (description.includes('white')) score += 10
+  if (description.includes('brown')) score += 8
+
+  if (description.includes('dried')) score -= 35
+  if (description.includes('dehydrated')) score -= 35
+  if (description.includes('sweetened')) score -= 25
+  if (description.includes('with sugar')) score -= 25
+
+  if (hasBadKeyword(description)) score -= 80
+
+  const kcal = getNutrient(food, ['energy'])
+
+  if (search.includes('banana') && kcal > 150) score -= 80
+  if (search.includes('apple') && kcal > 120) score -= 80
+  if (search.includes('rice') && description.includes('cooked')) score += 30
+  if (search.includes('chicken') && description.includes('breast')) score += 30
+  if (search.includes('egg') && description.includes('whole')) score += 30
+  if (search.includes('salmon') && description.includes('raw')) score += 20
 
   return score
+}
+
+function cleanUsdaResults(results: UsdaFood[], query: string) {
+  return results
+    .filter((food) => {
+      const description = food.description?.toLowerCase() || ''
+      const kcal = getNutrient(food, ['energy'])
+
+      if (!description) return false
+      if (kcal <= 0) return false
+
+      return true
+    })
+    .sort(
+      (a, b) =>
+        getFoodScore(b, query) - getFoodScore(a, query)
+    )
+    .slice(0, 8)
 }
 
 export default function DashboardPage() {
@@ -136,10 +205,25 @@ export default function DashboardPage() {
     loadProfile()
   }, [])
 
-  const totalCalories = foods.reduce((acc, food) => acc + Number(food.calories || 0), 0)
-  const totalProteins = foods.reduce((acc, food) => acc + Number(food.proteins || 0), 0)
-  const totalCarbs = foods.reduce((acc, food) => acc + Number(food.carbs || 0), 0)
-  const totalFats = foods.reduce((acc, food) => acc + Number(food.fats || 0), 0)
+  const totalCalories = foods.reduce(
+    (acc, food) => acc + Number(food.calories || 0),
+    0
+  )
+
+  const totalProteins = foods.reduce(
+    (acc, food) => acc + Number(food.proteins || 0),
+    0
+  )
+
+  const totalCarbs = foods.reduce(
+    (acc, food) => acc + Number(food.carbs || 0),
+    0
+  )
+
+  const totalFats = foods.reduce(
+    (acc, food) => acc + Number(food.fats || 0),
+    0
+  )
 
   const calorieGoal = profile?.calorie_goal || 2800
   const proteinGoal = profile?.protein_goal || 120
@@ -191,12 +275,9 @@ export default function DashboardPage() {
         return
       }
 
-      const sortedFoods = (data.foods || []).sort(
-        (a: UsdaFood, b: UsdaFood) =>
-          getFoodScore(b, searchQuery) - getFoodScore(a, searchQuery)
-      )
+      const cleanedResults = cleanUsdaResults(data.foods || [], searchQuery)
 
-      setSearchResults(sortedFoods)
+      setSearchResults(cleanedResults)
     } catch {
       alert('Erreur pendant la recherche USDA')
     }
@@ -426,19 +507,27 @@ export default function DashboardPage() {
                       {product.description}
                     </p>
 
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {product.dataType && (
+                        <span className="rounded-full bg-neutral-100 px-2 py-1 text-xs text-neutral-500">
+                          {product.dataType}
+                        </span>
+                      )}
+
+                      {hasBadKeyword(product.description.toLowerCase()) && (
+                        <span className="rounded-full bg-red-100 px-2 py-1 text-xs text-red-600">
+                          moins pertinent
+                        </span>
+                      )}
+                    </div>
+
                     {product.brandName && (
-                      <p className="text-xs text-neutral-500">
+                      <p className="mt-1 text-xs text-neutral-500">
                         {product.brandName}
                       </p>
                     )}
 
-                    {product.dataType && (
-                      <p className="text-xs text-neutral-500">
-                        {product.dataType}
-                      </p>
-                    )}
-
-                    <p className="text-xs text-neutral-500 mt-1">
+                    <p className="mt-2 text-xs text-neutral-500">
                       {Math.round(getNutrient(product, ['energy']))} kcal / 100g
                     </p>
                   </button>
@@ -447,14 +536,47 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <Input placeholder="Nom de l’aliment" value={foodName} setValue={setFoodName} />
-          <Input placeholder="Quantité en grammes" value={grams} setValue={setGrams} type="number" />
+          <Input
+            placeholder="Nom de l’aliment"
+            value={foodName}
+            setValue={setFoodName}
+          />
+
+          <Input
+            placeholder="Quantité en grammes"
+            value={grams}
+            setValue={setGrams}
+            type="number"
+          />
 
           <div className="grid grid-cols-2 gap-3">
-            <Input placeholder="kcal / 100g" value={calories} setValue={setCalories} type="number" />
-            <Input placeholder="Protéines" value={proteins} setValue={setProteins} type="number" />
-            <Input placeholder="Glucides" value={carbs} setValue={setCarbs} type="number" />
-            <Input placeholder="Lipides" value={fats} setValue={setFats} type="number" />
+            <Input
+              placeholder="kcal / 100g"
+              value={calories}
+              setValue={setCalories}
+              type="number"
+            />
+
+            <Input
+              placeholder="Protéines"
+              value={proteins}
+              setValue={setProteins}
+              type="number"
+            />
+
+            <Input
+              placeholder="Glucides"
+              value={carbs}
+              setValue={setCarbs}
+              type="number"
+            />
+
+            <Input
+              placeholder="Lipides"
+              value={fats}
+              setValue={setFats}
+              type="number"
+            />
           </div>
 
           <select
