@@ -16,16 +16,93 @@ type Food = {
   meal_type: string
 }
 
-type SearchResult = {
-  product_name?: string
-  brands?: string
-  code?: string
-  nutriments?: {
-    'energy-kcal_100g'?: number
-    proteins_100g?: number
-    carbohydrates_100g?: number
-    fat_100g?: number
+type UsdaFood = {
+  fdcId: number
+  description: string
+  dataType?: string
+  brandName?: string
+  foodNutrients?: {
+    nutrientName?: string
+    nutrientNumber?: string
+    value?: number
+    unitName?: string
+  }[]
+}
+
+function toNumber(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return 0
+  return Number(String(value).replace(',', '.')) || 0
+}
+
+function translateToEnglish(query: string) {
+  const dictionary: Record<string, string> = {
+    banane: 'banana',
+    pomme: 'apple',
+    riz: 'rice',
+    poulet: 'chicken',
+    oeuf: 'egg',
+    œuf: 'egg',
+    oeufs: 'eggs',
+    œufs: 'eggs',
+    saumon: 'salmon',
+    thon: 'tuna',
+    avocat: 'avocado',
+    brocoli: 'broccoli',
+    carotte: 'carrot',
+    tomate: 'tomato',
+    lait: 'milk',
+    fromage: 'cheese',
+    avoine: 'oats',
+    patate: 'potato',
+    'pomme de terre': 'potato',
+    pâtes: 'pasta',
+    pates: 'pasta',
+    boeuf: 'beef',
+    bœuf: 'beef',
+    porc: 'pork',
+    dinde: 'turkey',
+    yaourt: 'yogurt',
   }
+
+  const lower = query.toLowerCase().trim()
+  return dictionary[lower] || query
+}
+
+function translateFoodName(name: string) {
+  const lower = name.toLowerCase()
+
+  if (lower.includes('banana')) return 'Banane'
+  if (lower.includes('apple')) return 'Pomme'
+  if (lower.includes('rice')) return 'Riz'
+  if (lower.includes('chicken')) return 'Poulet'
+  if (lower.includes('egg')) return 'Œuf'
+  if (lower.includes('salmon')) return 'Saumon'
+  if (lower.includes('tuna')) return 'Thon'
+  if (lower.includes('avocado')) return 'Avocat'
+  if (lower.includes('broccoli')) return 'Brocoli'
+  if (lower.includes('carrot')) return 'Carotte'
+  if (lower.includes('tomato')) return 'Tomate'
+  if (lower.includes('milk')) return 'Lait'
+  if (lower.includes('cheese')) return 'Fromage'
+  if (lower.includes('oats')) return 'Flocons d’avoine'
+  if (lower.includes('potato')) return 'Pomme de terre'
+  if (lower.includes('pasta')) return 'Pâtes'
+  if (lower.includes('beef')) return 'Bœuf'
+  if (lower.includes('pork')) return 'Porc'
+  if (lower.includes('turkey')) return 'Dinde'
+  if (lower.includes('yogurt')) return 'Yaourt'
+
+  return name
+}
+
+function getNutrient(food: UsdaFood, names: string[]) {
+  const nutrient = food.foodNutrients?.find((item) =>
+    names.some((name) =>
+      item.nutrientName?.toLowerCase().includes(name)
+    )
+  )
+
+  return nutrient?.value || 0
 }
 
 export default function DashboardPage() {
@@ -41,7 +118,7 @@ export default function DashboardPage() {
   const [mealType, setMealType] = useState('Déjeuner')
 
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchResults, setSearchResults] = useState<UsdaFood[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
 
   const [loading, setLoading] = useState(false)
@@ -105,19 +182,19 @@ export default function DashboardPage() {
   const remainingFats = fatsGoal - totalFats
 
   const liveCalories = useMemo(() => {
-    return Math.round((Number(calories || 0) * Number(grams || 0)) / 100)
+    return Math.round((toNumber(calories) * toNumber(grams)) / 100)
   }, [calories, grams])
 
   const liveProteins = useMemo(() => {
-    return ((Number(proteins || 0) * Number(grams || 0)) / 100).toFixed(1)
+    return ((toNumber(proteins) * toNumber(grams)) / 100).toFixed(1)
   }, [proteins, grams])
 
   const liveCarbs = useMemo(() => {
-    return ((Number(carbs || 0) * Number(grams || 0)) / 100).toFixed(1)
+    return ((toNumber(carbs) * toNumber(grams)) / 100).toFixed(1)
   }, [carbs, grams])
 
   const liveFats = useMemo(() => {
-    return ((Number(fats || 0) * Number(grams || 0)) / 100).toFixed(1)
+    return ((toNumber(fats) * toNumber(grams)) / 100).toFixed(1)
   }, [fats, grams])
 
   const afterAddCalories = totalCalories + liveCalories
@@ -132,30 +209,39 @@ export default function DashboardPage() {
     setSearchLoading(true)
 
     try {
+      const translatedQuery = translateToEnglish(searchQuery)
+
       const response = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
-          searchQuery
-        )}&search_simple=1&action=process&json=1&page_size=10&fields=product_name,brands,code,nutriments`
+        `/api/usda-search?query=${encodeURIComponent(translatedQuery)}`
       )
 
       const data = await response.json()
 
-      setSearchResults(data.products || [])
+      if (data.error) {
+        alert(data.error)
+        setSearchLoading(false)
+        return
+      }
+
+      setSearchResults(data.foods || [])
     } catch {
-      alert('Erreur pendant la recherche')
+      alert('Erreur pendant la recherche USDA')
     }
 
     setSearchLoading(false)
   }
 
-  function useSearchResult(product: SearchResult) {
-    const nutriments = product.nutriments || {}
+  function useSearchResult(product: UsdaFood) {
+    const kcal = getNutrient(product, ['energy'])
+    const protein = getNutrient(product, ['protein'])
+    const carb = getNutrient(product, ['carbohydrate'])
+    const fat = getNutrient(product, ['total lipid', 'fat'])
 
-    setFoodName(product.product_name || 'Produit sans nom')
-    setCalories(String(nutriments['energy-kcal_100g'] || 0))
-    setProteins(String(nutriments.proteins_100g || 0))
-    setCarbs(String(nutriments.carbohydrates_100g || 0))
-    setFats(String(nutriments.fat_100g || 0))
+    setFoodName(translateFoodName(product.description))
+    setCalories(String(kcal || 0))
+    setProteins(String(protein || 0))
+    setCarbs(String(carb || 0))
+    setFats(String(fat || 0))
     setGrams('100')
     setSearchResults([])
     setSearchQuery('')
@@ -181,7 +267,7 @@ export default function DashboardPage() {
       proteins: Number(liveProteins),
       carbs: Number(liveCarbs),
       fats: Number(liveFats),
-      grams: Number(grams),
+      grams: toNumber(grams),
       meal_type: mealType,
     })
 
@@ -203,7 +289,9 @@ export default function DashboardPage() {
   }
 
   async function deleteFood(id: string) {
-    const confirmed = window.confirm('Es-tu sûr de vouloir supprimer cet aliment ?')
+    const confirmed = window.confirm(
+      'Es-tu sûr de vouloir supprimer cet aliment ?'
+    )
 
     if (!confirmed) return
 
@@ -290,11 +378,13 @@ export default function DashboardPage() {
               value={`${totalProteins.toFixed(1)} / ${proteinGoal}g`}
               remaining={`${Math.max(0, remainingProteins).toFixed(1)}g restants`}
             />
+
             <Macro
               label="Glucides"
               value={`${totalCarbs.toFixed(1)} / ${carbsGoal}g`}
               remaining={`${Math.max(0, remainingCarbs).toFixed(1)}g restants`}
             />
+
             <Macro
               label="Lipides"
               value={`${totalFats.toFixed(1)} / ${fatsGoal}g`}
@@ -306,6 +396,7 @@ export default function DashboardPage() {
         <section className="rounded-3xl bg-white p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold">Ajouter</h2>
+
             <button
               onClick={() => setShowScanner(true)}
               className="rounded-full bg-black px-4 py-2 text-sm text-white"
@@ -317,6 +408,7 @@ export default function DashboardPage() {
           {showScanner && (
             <div className="rounded-2xl border p-3 space-y-3">
               <BarcodeScanner onScan={handleScan} />
+
               <button
                 onClick={() => setShowScanner(false)}
                 className="w-full rounded-xl border py-3"
@@ -353,22 +445,22 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {searchResults.map((product, index) => (
                   <button
-                    key={`${product.code || index}`}
+                    key={`${product.fdcId || index}`}
                     onClick={() => useSearchResult(product)}
                     className="w-full rounded-2xl bg-white p-3 text-left border"
                   >
                     <p className="font-semibold">
-                      {product.product_name || 'Produit sans nom'}
+                      {translateFoodName(product.description)}
                     </p>
 
-                    {product.brands && (
+                    {product.brandName && (
                       <p className="text-xs text-neutral-500">
-                        {product.brands}
+                        {product.brandName}
                       </p>
                     )}
 
                     <p className="text-xs text-neutral-500 mt-1">
-                      {product.nutriments?.['energy-kcal_100g'] || 0} kcal / 100g
+                      {Math.round(getNutrient(product, ['energy']))} kcal / 100g
                     </p>
                   </button>
                 ))}
@@ -410,6 +502,7 @@ export default function DashboardPage() {
             <p className="text-sm text-neutral-500">
               Après ajout : {afterAddCalories} / {calorieGoal} kcal
             </p>
+
             <p className="text-sm text-neutral-500">
               Restant après ajout : {afterAddRemaining} kcal
             </p>
@@ -434,10 +527,14 @@ export default function DashboardPage() {
           )}
 
           {foods.map((food) => (
-            <div key={food.id} className="relative rounded-2xl bg-white p-4 shadow-sm">
+            <div
+              key={food.id}
+              className="relative rounded-2xl bg-white p-4 shadow-sm"
+            >
               <div className="flex justify-between gap-3 pr-10">
                 <div>
                   <h3 className="font-semibold">{food.name}</h3>
+
                   <p className="text-sm text-neutral-500">
                     {food.meal_type} · {food.grams} g
                   </p>
@@ -499,8 +596,11 @@ function Macro({
     <div className="rounded-2xl bg-neutral-100 p-3">
       <p className="text-xs text-neutral-500">{label}</p>
       <p className="font-semibold">{value}</p>
+
       {remaining && (
-        <p className="text-xs text-neutral-500 mt-1">{remaining}</p>
+        <p className="text-xs text-neutral-500 mt-1">
+          {remaining}
+        </p>
       )}
     </div>
   )
