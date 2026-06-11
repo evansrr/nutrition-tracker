@@ -16,6 +16,18 @@ type Food = {
   meal_type: string
 }
 
+type SearchResult = {
+  product_name?: string
+  brands?: string
+  code?: string
+  nutriments?: {
+    'energy-kcal_100g'?: number
+    proteins_100g?: number
+    carbohydrates_100g?: number
+    fat_100g?: number
+  }
+}
+
 export default function DashboardPage() {
   const [foods, setFoods] = useState<Food[]>([])
   const [profile, setProfile] = useState<any>(null)
@@ -27,6 +39,10 @@ export default function DashboardPage() {
   const [fats, setFats] = useState('')
   const [grams, setGrams] = useState('100')
   const [mealType, setMealType] = useState('Déjeuner')
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [showScanner, setShowScanner] = useState(false)
@@ -107,6 +123,44 @@ export default function DashboardPage() {
   const afterAddCalories = totalCalories + liveCalories
   const afterAddRemaining = calorieGoal - afterAddCalories
 
+  async function searchFoodByText() {
+    if (!searchQuery.trim()) {
+      alert('Entre un aliment à rechercher')
+      return
+    }
+
+    setSearchLoading(true)
+
+    try {
+      const response = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+          searchQuery
+        )}&search_simple=1&action=process&json=1&page_size=10&fields=product_name,brands,code,nutriments`
+      )
+
+      const data = await response.json()
+
+      setSearchResults(data.products || [])
+    } catch {
+      alert('Erreur pendant la recherche')
+    }
+
+    setSearchLoading(false)
+  }
+
+  function useSearchResult(product: SearchResult) {
+    const nutriments = product.nutriments || {}
+
+    setFoodName(product.product_name || 'Produit sans nom')
+    setCalories(String(nutriments['energy-kcal_100g'] || 0))
+    setProteins(String(nutriments.proteins_100g || 0))
+    setCarbs(String(nutriments.carbohydrates_100g || 0))
+    setFats(String(nutriments.fat_100g || 0))
+    setGrams('100')
+    setSearchResults([])
+    setSearchQuery('')
+  }
+
   async function addFood() {
     setLoading(true)
 
@@ -149,9 +203,7 @@ export default function DashboardPage() {
   }
 
   async function deleteFood(id: string) {
-    const confirmed = window.confirm(
-      'Es-tu sûr de vouloir supprimer cet aliment ?'
-    )
+    const confirmed = window.confirm('Es-tu sûr de vouloir supprimer cet aliment ?')
 
     if (!confirmed) return
 
@@ -273,6 +325,56 @@ export default function DashboardPage() {
               </button>
             </div>
           )}
+
+          <div className="rounded-2xl bg-neutral-100 p-4 space-y-3">
+            <p className="font-semibold">Rechercher un aliment</p>
+
+            <div className="flex gap-2">
+              <input
+                className="w-full rounded-2xl border bg-white px-4 py-3 outline-none focus:border-black"
+                placeholder="Ex : banane, riz, poulet..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+
+              <button
+                onClick={searchFoodByText}
+                className="rounded-2xl bg-black px-4 text-white"
+              >
+                OK
+              </button>
+            </div>
+
+            {searchLoading && (
+              <p className="text-sm text-neutral-500">Recherche...</p>
+            )}
+
+            {searchResults.length > 0 && (
+              <div className="space-y-2">
+                {searchResults.map((product, index) => (
+                  <button
+                    key={`${product.code || index}`}
+                    onClick={() => useSearchResult(product)}
+                    className="w-full rounded-2xl bg-white p-3 text-left border"
+                  >
+                    <p className="font-semibold">
+                      {product.product_name || 'Produit sans nom'}
+                    </p>
+
+                    {product.brands && (
+                      <p className="text-xs text-neutral-500">
+                        {product.brands}
+                      </p>
+                    )}
+
+                    <p className="text-xs text-neutral-500 mt-1">
+                      {product.nutriments?.['energy-kcal_100g'] || 0} kcal / 100g
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <Input placeholder="Nom de l’aliment" value={foodName} setValue={setFoodName} />
           <Input placeholder="Quantité en grammes" value={grams} setValue={setGrams} type="number" />
