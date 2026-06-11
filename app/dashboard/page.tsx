@@ -34,67 +34,6 @@ function toNumber(value: string | number | null | undefined) {
   return Number(String(value).replace(',', '.')) || 0
 }
 
-function translateToEnglish(query: string) {
-  const dictionary: Record<string, string> = {
-    banane: 'banana',
-    pomme: 'apple',
-    riz: 'rice',
-    poulet: 'chicken',
-    oeuf: 'egg',
-    œuf: 'egg',
-    oeufs: 'eggs',
-    œufs: 'eggs',
-    saumon: 'salmon',
-    thon: 'tuna',
-    avocat: 'avocado',
-    brocoli: 'broccoli',
-    carotte: 'carrot',
-    tomate: 'tomato',
-    lait: 'milk',
-    fromage: 'cheese',
-    avoine: 'oats',
-    patate: 'potato',
-    'pomme de terre': 'potato',
-    pâtes: 'pasta',
-    pates: 'pasta',
-    boeuf: 'beef',
-    bœuf: 'beef',
-    porc: 'pork',
-    dinde: 'turkey',
-    yaourt: 'yogurt',
-  }
-
-  const lower = query.toLowerCase().trim()
-  return dictionary[lower] || query
-}
-
-function translateFoodName(name: string) {
-  const lower = name.toLowerCase()
-
-  if (lower.includes('banana')) return 'Banane'
-  if (lower.includes('apple')) return 'Pomme'
-  if (lower.includes('rice')) return 'Riz'
-  if (lower.includes('chicken')) return 'Poulet'
-  if (lower.includes('egg')) return 'Œuf'
-  if (lower.includes('salmon')) return 'Saumon'
-  if (lower.includes('tuna')) return 'Thon'
-  if (lower.includes('avocado')) return 'Avocat'
-  if (lower.includes('broccoli')) return 'Brocoli'
-  if (lower.includes('carrot')) return 'Carotte'
-  if (lower.includes('tomato')) return 'Tomate'
-  if (lower.includes('milk')) return 'Lait'
-  if (lower.includes('cheese')) return 'Fromage'
-  if (lower.includes('oats')) return 'Flocons d’avoine'
-  if (lower.includes('potato')) return 'Pomme de terre'
-  if (lower.includes('pasta')) return 'Pâtes'
-  if (lower.includes('beef')) return 'Bœuf'
-  if (lower.includes('pork')) return 'Porc'
-  if (lower.includes('turkey')) return 'Dinde'
-  if (lower.includes('yogurt')) return 'Yaourt'
-
-  return name
-}
-
 function getNutrient(food: UsdaFood, names: string[]) {
   const nutrient = food.foodNutrients?.find((item) =>
     names.some((name) =>
@@ -103,6 +42,37 @@ function getNutrient(food: UsdaFood, names: string[]) {
   )
 
   return nutrient?.value || 0
+}
+
+function getFoodScore(food: UsdaFood, query: string) {
+  const description = food.description?.toLowerCase() || ''
+  const search = query.toLowerCase().trim()
+
+  let score = 0
+
+  if (description === search) score += 100
+  if (description.includes(search)) score += 50
+  if (description.includes('raw')) score += 30
+  if (description.includes('fresh')) score += 25
+  if (description.includes('cooked')) score += 15
+
+  if (food.dataType === 'Foundation') score += 20
+  if (food.dataType === 'SR Legacy') score += 15
+
+  if (description.includes('babyfood')) score -= 50
+  if (description.includes('snack')) score -= 35
+  if (description.includes('dried')) score -= 25
+  if (description.includes('dehydrated')) score -= 25
+  if (description.includes('chips')) score -= 30
+  if (description.includes('dessert')) score -= 30
+  if (description.includes('beverage')) score -= 25
+  if (description.includes('restaurant')) score -= 25
+  if (description.includes('candy')) score -= 30
+  if (description.includes('pie')) score -= 25
+  if (description.includes('cake')) score -= 25
+  if (description.includes('cookie')) score -= 25
+
+  return score
 }
 
 export default function DashboardPage() {
@@ -209,10 +179,8 @@ export default function DashboardPage() {
     setSearchLoading(true)
 
     try {
-      const translatedQuery = translateToEnglish(searchQuery)
-
       const response = await fetch(
-        `/api/usda-search?query=${encodeURIComponent(translatedQuery)}`
+        `/api/usda-search?query=${encodeURIComponent(searchQuery)}`
       )
 
       const data = await response.json()
@@ -223,7 +191,12 @@ export default function DashboardPage() {
         return
       }
 
-      setSearchResults(data.foods || [])
+      const sortedFoods = (data.foods || []).sort(
+        (a: UsdaFood, b: UsdaFood) =>
+          getFoodScore(b, searchQuery) - getFoodScore(a, searchQuery)
+      )
+
+      setSearchResults(sortedFoods)
     } catch {
       alert('Erreur pendant la recherche USDA')
     }
@@ -237,7 +210,7 @@ export default function DashboardPage() {
     const carb = getNutrient(product, ['carbohydrate'])
     const fat = getNutrient(product, ['total lipid', 'fat'])
 
-    setFoodName(translateFoodName(product.description))
+    setFoodName(product.description)
     setCalories(String(kcal || 0))
     setProteins(String(protein || 0))
     setCarbs(String(carb || 0))
@@ -424,7 +397,7 @@ export default function DashboardPage() {
             <div className="flex gap-2">
               <input
                 className="w-full rounded-2xl border bg-white px-4 py-3 outline-none focus:border-black"
-                placeholder="Ex : banane, riz, poulet..."
+                placeholder="Ex : banana, rice, chicken..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -450,12 +423,18 @@ export default function DashboardPage() {
                     className="w-full rounded-2xl bg-white p-3 text-left border"
                   >
                     <p className="font-semibold">
-                      {translateFoodName(product.description)}
+                      {product.description}
                     </p>
 
                     {product.brandName && (
                       <p className="text-xs text-neutral-500">
                         {product.brandName}
+                      </p>
+                    )}
+
+                    {product.dataType && (
+                      <p className="text-xs text-neutral-500">
+                        {product.dataType}
                       </p>
                     )}
 
